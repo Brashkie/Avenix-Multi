@@ -1,6 +1,6 @@
 {
   "name": "hepeinbot",
-  "version": "1.7.0",
+  "version": "1.0.0",
   "description": "Bot de WhatsApp",
   "main": "index.js",
   "type": "module",
