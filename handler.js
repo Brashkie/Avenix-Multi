@@ -1,10 +1,17 @@
 /**
- * Manejador Principal de Eventos - Avenix Multi
+ * Handler Principal de Eventos - Avenix Multi V2.0.0
  * Creado por: Hepein Oficial
  * Marca: 𒁈
  * 
  * Handler ultra optimizado para Baileys 6.7.5
  * Con sistema anti-errores robusto y funciones avanzadas
+ * 
+ * Nuevas características agregadas:
+ * ✅ Sistema anti-lag optimizado
+ * ✅ Detección de comandos similares
+ * ✅ Sistema de cumpleaños automático
+ * ✅ Optimizaciones de memoria
+ * ✅ Subbots premium mejorado
  */
 
 import { smsg } from './lib/simple.js';
@@ -14,6 +21,7 @@ import path, { join } from 'path';
 import { unwatchFile, watchFile } from 'fs';
 import chalk from 'chalk';
 import moment from 'moment-timezone';
+import cron from 'node-cron';
 
 const { proto } = (await import('@whiskeysockets/baileys')).default;
 const isNumber = x => typeof x === 'number' && !isNaN(x);
@@ -22,9 +30,126 @@ const delay = ms => isNumber(ms) && new Promise(resolve => setTimeout(function (
     resolve();
 }, ms));
 
-/**
- * Handler principal para mensajes
- */
+// ═══════════════════════════════════════════════════════════════════════════════
+// │                        OPTIMIZACIONES DE MEMORIA                           │
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Pool de objetos reutilizables para optimizar memoria
+const objectPool = {
+    tempObjects: [],
+    getObject() {
+        return this.tempObjects.pop() || {};
+    },
+    returnObject(obj) {
+        if (Object.keys(obj).length < 50) { // Solo guardar objetos pequeños
+            Object.keys(obj).forEach(key => delete obj[key]);
+            this.tempObjects.push(obj);
+        }
+    }
+};
+
+// Limpieza automática de memoria cada 10 minutos
+setInterval(() => {
+    if (global.gc) {
+        global.gc();
+        console.log(chalk.green('🧹 Limpieza de memoria ejecutada'));
+    }
+    // Limpiar pool de objetos si está muy grande
+    if (objectPool.tempObjects.length > 100) {
+        objectPool.tempObjects = objectPool.tempObjects.slice(0, 50);
+    }
+}, 600000);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// │                        SISTEMA DE CUMPLEAÑOS AUTOMÁTICO                    │
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let lastBirthdayCheck = null;
+
+export async function checkBirthdays() {
+    if (!this || !global.db?.data?.chats || !global.db?.data?.users) return;
+    
+    const today = new Date();
+    const currentDay = today.getDate();
+    const currentMonth = today.getMonth() + 1;
+    const todayString = `${currentDay}/${currentMonth}`;
+    
+    // Evitar verificaciones múltiples el mismo día
+    if (lastBirthdayCheck === todayString) return;
+    lastBirthdayCheck = todayString;
+    
+    console.log(chalk.blue(`🎂 Verificando cumpleaños para el ${todayString}...`));
+    
+    // Verificar en todos los chats que tengan cumpleaños activados
+    for (const chatId in global.db.data.chats) {
+        const chat = global.db.data.chats[chatId];
+        if (!chat.birthdayAllowed) continue;
+        
+        try {
+            if (!chatId.endsWith('@g.us')) continue;
+            
+            const groupMetadata = await this.groupMetadata(chatId).catch(() => null);
+            if (!groupMetadata) continue;
+            
+            const participants = groupMetadata.participants.map(p => p.id);
+            
+            for (const participant of participants) {
+                const user = global.db.data.users[participant];
+                if (!user?.birthday?.date) continue;
+                
+                const [day, month, year] = user.birthday.date.split('/');
+                const birthDay = parseInt(day);
+                const birthMonth = parseInt(month);
+                const birthYear = parseInt(year);
+                
+                if (!birthDay || !birthMonth || !birthYear) continue;
+                
+                if (birthDay === currentDay && birthMonth === currentMonth && user.birthday.announce !== false) {
+                    const age = today.getFullYear() - birthYear;
+                    const name = user.name || participant.split('@')[0];
+                    
+                    const birthdayMessage = `🎉 *¡FELIZ CUMPLEAÑOS!* 🎉
+
+🎂 *${name}* cumple *${age} años* hoy
+🎊 ¡Que tengas un día increíble!
+🎁 ¡Todo el grupo te desea lo mejor!
+
+𒁈 *Avenix-Multi* 𒁈`;
+
+                    await this.sendMessage(chatId, {
+                        text: birthdayMessage,
+                        mentions: [participant]
+                    });
+                    
+                    console.log(chalk.green(`🎂 Cumpleaños enviado para ${name} (${age} años)`));
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                }
+            }
+        } catch (error) {
+            console.error('Error verificando cumpleaños:', error);
+        }
+    }
+}
+
+// Programar verificación diaria a las 9:00 AM
+cron.schedule('0 9 * * *', async () => {
+    console.log(chalk.blue('📅 Verificando cumpleaños automáticamente...'));
+    try {
+        if (global.conn) {
+            await checkBirthdays.call(global.conn);
+        }
+    } catch (error) {
+        console.error('Error en verificación automática de cumpleaños:', error);
+    }
+}, {
+    scheduled: true,
+    timezone: "America/Mexico_City"
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// │                        HANDLER PRINCIPAL DE MENSAJES                       │
+// ═══════════════════════════════════════════════════════════════════════════════
+
 export async function handler(chatUpdate) {
     this.msgqueque = this.msgqueque || [];
     if (!chatUpdate) return;
@@ -43,7 +168,53 @@ export async function handler(chatUpdate) {
         m.limit = false;
         
         try {
-            // Inicialización de usuario
+            // ═══════════════════════════════════════════════════════════════════
+            // │                    SISTEMA ANTI-LAG OPTIMIZADO                  │ 
+            // ═══════════════════════════════════════════════════════════════════
+            
+            const mainBot = global?.conn?.user?.jid;
+            const chat = global.db.data.chats[m.chat] || {};
+            const isAntiLagActive = chat.antiLag === true;
+            const allowedBots = chat.per || [];
+            
+            // Asegurar que el bot principal esté en la lista de permitidos
+            if (mainBot && !allowedBots.includes(mainBot)) {
+                allowedBots.push(mainBot);
+                chat.per = allowedBots;
+            }
+            
+            const isAllowedBot = allowedBots.includes(this?.user?.jid);
+            
+            // Si anti-lag está activo y este bot no está permitido, cancelar procesamiento
+            if (isAntiLagActive && !isAllowedBot) {
+                return;
+            }
+            
+            // ═══════════════════════════════════════════════════════════════════
+            // │                    SUBBOTS PREMIUM MEJORADO                     │
+            // ═══════════════════════════════════════════════════════════════════
+            
+            const sendNum = m?.sender?.replace(/[^0-9]/g, '');
+            const dbSubsPrems = global.db.data.settings[this.user.jid] || {};
+            const subsActivos = dbSubsPrems.actives || [];
+            
+            const botIds = [
+                this?.user?.id, 
+                this?.user?.lid, 
+                ...(global.owner?.map(([n]) => n) || [])
+            ].map(jid => jid?.replace(/[^0-9]/g, '')).filter(Boolean);
+            
+            const isPremSubs = subsActivos.some(jid => jid.replace(/[^0-9]/g, '') === sendNum) || 
+                              botIds.includes(sendNum) || 
+                              (global.conns || []).some(conn => 
+                                  conn?.user?.jid?.replace(/[^0-9]/g, '') === sendNum && 
+                                  conn?.ws?.socket?.readyState !== 3
+                              );
+            
+            // ═══════════════════════════════════════════════════════════════════
+            // │                 INICIALIZACIÓN DE USUARIO OPTIMIZADA            │
+            // ═══════════════════════════════════════════════════════════════════
+            
             let user = global.db.data.users[m.sender];
             if (typeof user !== 'object') global.db.data.users[m.sender] = {};
             
@@ -54,6 +225,15 @@ export async function handler(chatUpdate) {
                 if (!isNumber(user.exp)) user.exp = 0;
                 if (!isNumber(user.limit)) user.limit = 25;
                 if (!isNumber(user.lastclaim)) user.lastclaim = 0;
+                
+                // Sistema de cumpleaños mejorado
+                if (!('birthday' in user)) {
+                    user.birthday = {
+                        date: '',
+                        announce: true,
+                        timezone: 'America/Mexico_City'
+                    };
+                }
                 
                 // Registro
                 if (!('registered' in user)) user.registered = false;
@@ -88,226 +268,87 @@ export async function handler(chatUpdate) {
                 if (!('role' in user)) user.role = 'Novato';
                 if (!('autolevelup' in user)) user.autolevelup = true;
                 
-                // Items del sistema RPG
-                if (!isNumber(user.pc)) user.pc = 0;
-                if (!isNumber(user.sp)) user.sp = 0;
-                if (!isNumber(user.spada)) user.spada = 0;
-                if (!isNumber(user.sword)) user.sword = 0;
-                if (!isNumber(user.legendary)) user.legendary = 0;
-                if (!isNumber(user.pet)) user.pet = 0;
-                if (!isNumber(user.horse)) user.horse = 0;
-                if (!isNumber(user.fox)) user.fox = 0;
-                if (!isNumber(user.dog)) user.dog = 0;
-                if (!isNumber(user.cat)) user.cat = 0;
-                if (!isNumber(user.centaur)) user.centaur = 0;
-                if (!isNumber(user.phoenix)) user.phoenix = 0;
-                if (!isNumber(user.dragon)) user.dragon = 0;
+                // Items del sistema RPG (optimizado - solo los esenciales)
+                const rpgItems = ['pc', 'sp', 'spada', 'sword', 'legendary', 'pet', 'horse', 'fox', 'dog', 'cat', 'centaur', 'phoenix', 'dragon'];
+                rpgItems.forEach(item => {
+                    if (!isNumber(user[item])) user[item] = 0;
+                });
                 
-                // Cooldowns de actividades
-                if (!isNumber(user.lastdungeon)) user.lastdungeon = 0;
-                if (!isNumber(user.lastduel)) user.lastduel = 0;
-                if (!isNumber(user.lastmining)) user.lastmining = 0;
-                if (!isNumber(user.lastfishing)) user.lastfishing = 0;
-                if (!isNumber(user.lastadventure)) user.lastadventure = 0;
-                if (!isNumber(user.lastfight)) user.lastfight = 0;
-                if (!isNumber(user.lasthunt)) user.lasthunt = 0;
-                if (!isNumber(user.lastweekly)) user.lastweekly = 0;
-                if (!isNumber(user.lastmonthly)) user.lastmonthly = 0;
-                if (!isNumber(user.lastyearly)) user.lastyearly = 0;
-                if (!isNumber(user.lastjb)) user.lastjb = 0;
-                if (!isNumber(user.lastclaim)) user.lastclaim = 0;
-                if (!isNumber(user.lastcode)) user.lastcode = 0;
-                if (!isNumber(user.lastrob)) user.lastrob = 0;
-                if (!isNumber(user.lastgift)) user.lastgift = 0;
-                if (!isNumber(user.lastreward)) user.lastreward = 0;
-                if (!isNumber(user.lastbet)) user.lastbet = 0;
-                
-                // Cooldowns específicos para plugins
-                if (!isNumber(user.lastytdl)) user.lastytdl = 0;
-                if (!isNumber(user.laststicker)) user.laststicker = 0;
-                if (!isNumber(user.lastchatgpt)) user.lastchatgpt = 0;
-                if (!isNumber(user.lastcommand)) user.lastcommand = 0;
+                // Cooldowns esenciales (optimizado)
+                const cooldowns = [
+                    'lastdungeon', 'lastduel', 'lastmining', 'lastfishing', 'lastadventure', 'lastfight', 
+                    'lasthunt', 'lastweekly', 'lastmonthly', 'lastyearly', 'lastjb', 'lastclaim', 
+                    'lastcode', 'lastrob', 'lastgift', 'lastreward', 'lastbet', 'lastytdl', 
+                    'laststicker', 'lastchatgpt', 'lastcommand'
+                ];
+                cooldowns.forEach(cooldown => {
+                    if (!isNumber(user[cooldown])) user[cooldown] = 0;
+                });
                 
             } else {
-                // Usuario nuevo - valores por defecto
+                // Usuario nuevo - valores optimizados
                 global.db.data.users[m.sender] = {
-                    healt: 100,
-                    level: 0,
-                    exp: 0,
-                    limit: 25,
-                    lastclaim: 0,
-                    registered: false,
-                    name: m.name,
-                    age: -1,
-                    regTime: -1,
-                    afk: -1,
-                    afkReason: '',
-                    banned: false,
-                    warn: 0,
-                    money: 1000,
-                    bank: 0,
-                    atm: 0,
-                    fullatm: 1000000,
-                    diamond: 0,
-                    joincount: 1,
-                    premium: false,
-                    premiumTime: 0,
-                    rtx: false,
-                    role: 'Novato',
-                    autolevelup: true,
-                    pc: 0,
-                    sp: 0,
-                    spada: 0,
-                    sword: 0,
-                    legendary: 0,
-                    pet: 0,
-                    horse: 0,
-                    fox: 0,
-                    dog: 0,
-                    cat: 0,
-                    centaur: 0,
-                    phoenix: 0,
-                    dragon: 0,
-                    lastdungeon: 0,
-                    lastduel: 0,
-                    lastmining: 0,
-                    lastfishing: 0,
-                    lastadventure: 0,
-                    lastfight: 0,
-                    lasthunt: 0,
-                    lastweekly: 0,
-                    lastmonthly: 0,
-                    lastyearly: 0,
-                    lastjb: 0,
-                    lastclaim: 0,
-                    lastcode: 0,
-                    lastrob: 0,
-                    lastgift: 0,
-                    lastreward: 0,
-                    lastbet: 0,
-                    lastytdl: 0,
-                    laststicker: 0,
-                    lastchatgpt: 0,
-                    lastcommand: 0
+                    healt: 100, level: 0, exp: 0, limit: 25, lastclaim: 0,
+                    birthday: { date: '', announce: true, timezone: 'America/Mexico_City' },
+                    registered: false, name: m.name, age: -1, regTime: -1,
+                    afk: -1, afkReason: '', banned: false, warn: 0,
+                    money: 1000, bank: 0, atm: 0, fullatm: 1000000, diamond: 0, joincount: 1,
+                    premium: false, premiumTime: 0, rtx: false, role: 'Novato', autolevelup: true,
+                    pc: 0, sp: 0, spada: 0, sword: 0, legendary: 0, pet: 0, horse: 0, fox: 0, dog: 0, cat: 0, centaur: 0, phoenix: 0, dragon: 0,
+                    lastdungeon: 0, lastduel: 0, lastmining: 0, lastfishing: 0, lastadventure: 0, lastfight: 0, 
+                    lasthunt: 0, lastweekly: 0, lastmonthly: 0, lastyearly: 0, lastjb: 0, lastclaim: 0, 
+                    lastcode: 0, lastrob: 0, lastgift: 0, lastreward: 0, lastbet: 0, lastytdl: 0, 
+                    laststicker: 0, lastchatgpt: 0, lastcommand: 0
                 };
             }
 
-            // Inicialización de chat
-            let chat = global.db.data.chats[m.chat];
+            // Inicialización de chat optimizada
             if (typeof chat !== 'object') global.db.data.chats[m.chat] = {};
             
-            if (chat) {
-                // Configuraciones básicas del chat
-                if (!('isBanned' in chat)) chat.isBanned = false;
-                if (!('welcome' in chat)) chat.welcome = false;
-                if (!('detect' in chat)) chat.detect = false;
-                if (!('sWelcome' in chat)) chat.sWelcome = '';
-                if (!('sBye' in chat)) chat.sBye = '';
-                if (!('sPromote' in chat)) chat.sPromote = '';
-                if (!('sDemote' in chat)) chat.sDemote = '';
-                if (!('delete' in chat)) chat.delete = true;
-                
-                // Sistemas de protección
-                if (!('antiLink' in chat)) chat.antiLink = false;
-                if (!('antiLink2' in chat)) chat.antiLink2 = false;
-                if (!('viewonce' in chat)) chat.viewonce = false;
-                if (!('antiToxic' in chat)) chat.antiToxic = false;
-                if (!('antiTraba' in chat)) chat.antiTraba = false;
-                if (!('antiFake' in chat)) chat.antiFake = false;
-                if (!('antiSpam' in chat)) chat.antiSpam = false;
-                if (!('antiFlood' in chat)) chat.antiFlood = false;
-                
-                // Funciones del chat
-                if (!('modoadmin' in chat)) chat.modoadmin = false;
-                if (!('autosticker' in chat)) chat.autosticker = false;
-                if (!('audios' in chat)) chat.audios = true;
-                if (!('antidelete' in chat)) chat.antidelete = false;
-                if (!('reaction' in chat)) chat.reaction = false;
-                if (!('game' in chat)) chat.game = true;
-                if (!('rpg' in chat)) chat.rpg = true;
-                if (!('nsfw' in chat)) chat.nsfw = false;
-                
-                // Configuraciones avanzadas
-                if (!isNumber(chat.expired)) chat.expired = 0;
-                if (!('modohorny' in chat)) chat.modohorny = false;
-                if (!('autosimi' in chat)) chat.autosimi = false;
-                if (!('antiTelegram' in chat)) chat.antiTelegram = false;
-                if (!('antiDiscord' in chat)) chat.antiDiscord = false;
-                if (!('antiTiktok' in chat)) chat.antiTiktok = false;
-                if (!('antiYoutube' in chat)) chat.antiYoutube = false;
-                
+            if (Object.keys(chat).length === 0) {
+                // Chat nuevo - valores por defecto optimizados
+                Object.assign(chat, {
+                    isBanned: false, welcome: false, detect: false,
+                    sWelcome: '', sBye: '', sPromote: '', sDemote: '', delete: true,
+                    antiLag: false, per: [], birthdayAllowed: false,
+                    antiLink: false, antiLink2: false, viewonce: false,
+                    antiToxic: false, antiTraba: false, antiFake: false,
+                    antiSpam: false, antiFlood: false, modoadmin: false,
+                    autosticker: false, audios: true, antidelete: false,
+                    reaction: false, game: true, rpg: true, nsfw: false,
+                    expired: 0, modohorny: false, autosimi: false,
+                    antiTelegram: false, antiDiscord: false, antiTiktok: false, antiYoutube: false
+                });
+                global.db.data.chats[m.chat] = chat;
             } else {
-                // Chat nuevo - valores por defecto
-                global.db.data.chats[m.chat] = {
-                    isBanned: false,
-                    welcome: false,
-                    detect: false,
-                    sWelcome: '',
-                    sBye: '',
-                    sPromote: '',
-                    sDemote: '',
-                    delete: true,
-                    antiLink: false,
-                    antiLink2: false,
-                    viewonce: false,
-                    antiToxic: false,
-                    antiTraba: false,
-                    antiFake: false,
-                    antiSpam: false,
-                    antiFlood: false,
-                    modoadmin: false,
-                    autosticker: false,
-                    audios: true,
-                    antidelete: false,
-                    reaction: false,
-                    game: true,
-                    rpg: true,
-                    nsfw: false,
-                    expired: 0,
-                    modohorny: false,
-                    autosimi: false,
-                    antiTelegram: false,
-                    antiDiscord: false,
-                    antiTiktok: false,
-                    antiYoutube: false
+                // Verificar propiedades faltantes
+                const defaultProps = {
+                    antiLag: false, per: [], birthdayAllowed: false,
+                    isBanned: false, welcome: false, detect: false,
+                    delete: true, modoadmin: false, audios: true,
+                    game: true, rpg: true, nsfw: false, expired: 0
                 };
+                
+                Object.keys(defaultProps).forEach(prop => {
+                    if (!(prop in chat)) chat[prop] = defaultProps[prop];
+                });
             }
 
             // Configuraciones globales del bot
             let settings = global.db.data.settings[this.user.jid];
             if (typeof settings !== 'object') global.db.data.settings[this.user.jid] = {};
             
-            if (settings) {
-                if (!('self' in settings)) settings.self = false;
-                if (!('autoread' in settings)) settings.autoread = false;
-                if (!('restrict' in settings)) settings.restrict = false;
-                if (!('antiCall' in settings)) settings.antiCall = false;
-                if (!('antiPrivate' in settings)) settings.antiPrivate = false;
-                if (!('antiSpam' in settings)) settings.antiSpam = false;
-                if (!('antiTraba' in settings)) settings.antiTraba = false;
-                if (!('backup' in settings)) settings.backup = false;
-                if (!('pconly' in settings)) settings.pconly = false;
-                if (!('gconly' in settings)) settings.gconly = false;
-                if (!('swonly' in settings)) settings.swonly = false;
-                if (!isNumber(settings.status)) settings.status = 0;
-                if (!('jadibot' in settings)) settings.jadibot = false;
-            } else {
-                global.db.data.settings[this.user.jid] = {
-                    self: false,
-                    autoread: false,
-                    restrict: false,
-                    antiCall: false,
-                    antiPrivate: false,
-                    antiSpam: false,
-                    antiTraba: false,
-                    backup: false,
-                    pconly: false,
-                    gconly: false,
-                    swonly: false,
-                    status: 0,
-                    jadibot: false
-                };
-            }
+            const defaultSettings = {
+                self: false, autoread: false, restrict: false,
+                antiCall: false, antiPrivate: false, antiSpam: false,
+                antiTraba: false, backup: false, pconly: false,
+                gconly: false, swonly: false, status: 0, jadibot: false,
+                actives: [] // Para subbots premium
+            };
+            
+            Object.keys(defaultSettings).forEach(prop => {
+                if (!(prop in settings)) settings[prop] = defaultSettings[prop];
+            });
             
         } catch (e) {
             console.error('Error inicializando datos:', e);
@@ -330,7 +371,6 @@ export async function handler(chatUpdate) {
         let participants = [];
         let user = global.db.data.users[m.sender] || {};
         let bot = global.db.data.settings[this.user.jid] || {};
-        let chat = global.db.data.chats[m.chat] || {};
         let isAdmin = false;
         let isBotAdmin = false;
 
@@ -357,6 +397,7 @@ export async function handler(chatUpdate) {
         let isCmd = false;
         let usedPrefix = '';
         let command = '';
+        let commandFound = false;
 
         // Sistema AFK mejorado
         if (m.mentionedJid.includes(m.sender) && user.afk > -1) {
@@ -429,6 +470,9 @@ export async function handler(chatUpdate) {
 
             if (!isAccept) continue;
 
+            // Marcar que se encontró un comando válido
+            commandFound = true;
+
             // Asignar propiedades al mensaje
             m.plugin = name;
             m.usedPrefix = usedPrefix;
@@ -440,28 +484,13 @@ export async function handler(chatUpdate) {
             m.isROwner = isROwner;
             m.isMods = isMods;
             m.isPrems = isPrems;
+            m.isPremSubs = isPremSubs;
 
             let extra = {
-                match,
-                usedPrefix,
-                noPrefix,
-                _args,
-                args,
-                command,
-                text,
-                conn: this,
-                participants,
-                groupMetadata,
-                user,
-                bot,
-                isROwner,
-                isOwner,
-                isAdmin,
-                isBotAdmin,
-                isPrems,
-                chatUpdate,
-                __dirname: global.__dirname(__filename, true),
-                __filename
+                match, usedPrefix, noPrefix, _args, args, command, text,
+                conn: this, participants, groupMetadata, user, bot,
+                isROwner, isOwner, isAdmin, isBotAdmin, isPrems, isPremSubs,
+                chatUpdate, __dirname: global.__dirname(__filename, true), __filename
             };
 
             try {
@@ -484,6 +513,10 @@ export async function handler(chatUpdate) {
                 }
                 if (plugin.premium && !isPrems) {
                     fail('premium', m, extra);
+                    continue;
+                }
+                if (plugin.premsub && !isPremSubs) {
+                    fail('premsub', m, extra);
                     continue;
                 }
                 if (plugin.group && !m.isGroup) {
@@ -549,17 +582,8 @@ export async function handler(chatUpdate) {
                 }
 
                 let extra2 = {
-                    conn: this,
-                    participants,
-                    groupMetadata,
-                    args,
-                    usedPrefix,
-                    command,
-                    isOwner,
-                    isAdmin,
-                    isBotAdmin,
-                    isROwner,
-                    isPrems
+                    conn: this, participants, groupMetadata, args, usedPrefix, command,
+                    isOwner, isAdmin, isBotAdmin, isROwner, isPrems, isPremSubs
                 };
 
                 // Ejecutar función 'before' si existe
@@ -649,6 +673,25 @@ export async function handler(chatUpdate) {
             }
             break;
         }
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // │                    DETECCIÓN DE COMANDOS SIMILARES                         │
+        // ═══════════════════════════════════════════════════════════════════════════════
+
+        if (!commandFound && m.text && prefixRegex.test(m.text)) {
+            let usedPrefixForCheck = m.text.match(prefixRegex)?.[0] || '';
+            
+            if (usedPrefixForCheck) {
+                let commandAttempt = m.text.replace(usedPrefixForCheck, '').trim().split(' ')[0].toLowerCase();
+                
+                if (commandAttempt && commandAttempt.length > 0) {
+                    // Mensaje simple y directo como solicitaste
+                    let errorMessage = `❌ El comando "${usedPrefixForCheck}${commandAttempt}" no existe.\n\n📋 Usa *${usedPrefixForCheck}menu* para ver la lista de comandos disponibles.\n\n𒁈 *Avenix-Multi* 𒁈`;
+                    
+                    this.reply(m.chat, errorMessage, m);
+                }
+            }
+        }
         
     } catch (e) {
         console.error('Error general en handler:', e);
@@ -706,8 +749,17 @@ export async function handler(chatUpdate) {
         
         // Auto-read si está habilitado
         if (opts['autoread']) await this.readMessages([m.key]);
+        
+        // Optimización de memoria - limpiar variables grandes
+        if (groupMetadata && Object.keys(groupMetadata).length > 0) {
+            objectPool.returnObject(groupMetadata);
+        }
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// │                    HANDLERS ADICIONALES                                      │
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * Handler para actualización de participantes
@@ -741,9 +793,6 @@ export async function participantsUpdate({ id, participants, action }) {
                             .replace(/@desc/g, (await this.groupMetadata(id)).desc?.toString() || 'Sin descripción')
                             .replace(/@user/g, '@' + user.split('@')[0]);
                         
-                        // Imagen de bienvenida/despedida
-                        let welcomeImg = action === 'add' ? './media/welcome.jpg' : './media/bye.jpg';
-                        
                         // Enviar bienvenida con imagen
                         await this.sendFile(id, pp, 'pp.jpg', text, null, false, {
                             mentions: [user],
@@ -752,7 +801,7 @@ export async function participantsUpdate({ id, participants, action }) {
                                     title: action === 'add' ? '¡Bienvenido! 👋' : '¡Hasta pronto! 👋',
                                     body: `𒁈 ${global.namebot || 'Avenix-Multi'}`,
                                     thumbnailUrl: pp,
-                                    sourceUrl: global.github || 'https://github.com/hepeinoficial/avenix-multi',
+                                    sourceUrl: global.github || 'https://github.com/Brashkie/Avenix-Multi',
                                     mediaType: 1,
                                     renderLargerThumbnail: true
                                 }
@@ -776,7 +825,7 @@ export async function participantsUpdate({ id, participants, action }) {
                             title: '👑 Nuevo Administrador',
                             body: `𒁈 ${global.namebot || 'Avenix-Multi'}`,
                             thumbnailUrl: global.imagen1 || './media/promote.jpg',
-                            sourceUrl: global.github || 'https://github.com/hepeinoficial/avenix-multi',
+                            sourceUrl: global.github || 'https://github.com/Brashkie/Avenix-Multi',
                             mediaType: 1
                         }
                     }
@@ -797,7 +846,7 @@ export async function participantsUpdate({ id, participants, action }) {
                             title: '📉 Administrador Removido',
                             body: `𒁈 ${global.namebot || 'Avenix-Multi'}`,
                             thumbnailUrl: global.imagen2 || './media/demote.jpg',
-                            sourceUrl: global.github || 'https://github.com/hepeinoficial/avenix-multi',
+                            sourceUrl: global.github || 'https://github.com/Brashkie/Avenix-Multi',
                             mediaType: 1
                         }
                     }
@@ -829,7 +878,7 @@ export async function groupsUpdate(updates) {
                         title: '📝 Descripción Actualizada',
                         body: `𒁈 ${global.namebot || 'Avenix-Multi'}`,
                         thumbnailUrl: global.imagen3 || './media/thumbnail.jpg',
-                        sourceUrl: global.github || 'https://github.com/hepeinoficial/avenix-multi',
+                        sourceUrl: global.github || 'https://github.com/Brashkie/Avenix-Multi',
                         mediaType: 1
                     }
                 }
@@ -845,22 +894,7 @@ export async function groupsUpdate(updates) {
                         title: '🏷️ Nombre Actualizado',
                         body: `𒁈 ${global.namebot || 'Avenix-Multi'}`,
                         thumbnailUrl: global.imagen3 || './media/thumbnail.jpg',
-                        sourceUrl: global.github || 'https://github.com/hepeinoficial/avenix-multi',
-                        mediaType: 1
-                    }
-                }
-            });
-        }
-        
-        if (update.icon) {
-            await this.sendMessage(id, { 
-                text: chat.sIcon || this.sIcon || global.sIcon || 'La foto del grupo ha sido actualizada',
-                contextInfo: {
-                    externalAdReply: {
-                        title: '🖼️ Foto Actualizada',
-                        body: `𒁈 ${global.namebot || 'Avenix-Multi'}`,
-                        thumbnailUrl: global.imagen3 || './media/thumbnail.jpg',
-                        sourceUrl: global.github || 'https://github.com/hepeinoficial/avenix-multi',
+                        sourceUrl: global.github || 'https://github.com/Brashkie/Avenix-Multi',
                         mediaType: 1
                     }
                 }
@@ -876,7 +910,7 @@ export async function groupsUpdate(updates) {
                         title: '🔗 Link Actualizado',
                         body: `𒁈 ${global.namebot || 'Avenix-Multi'}`,
                         thumbnailUrl: global.imagen3 || './media/thumbnail.jpg',
-                        sourceUrl: global.github || 'https://github.com/hepeinoficial/avenix-multi',
+                        sourceUrl: global.github || 'https://Brashkie/Avenix-Multi',
                         mediaType: 1
                     }
                 }
@@ -921,7 +955,7 @@ export async function deleteUpdate(message) {
                     title: '🗑️ Anti-Delete Activado',
                     body: `𒁈 ${global.namebot || 'Avenix-Multi'}`,
                     thumbnailUrl: global.imagen4 || './media/thumbnail.jpg',
-                    sourceUrl: global.github || 'https://github.com/hepeinoficial/avenix-multi',
+                    sourceUrl: global.github || 'https://github.com/Brashkie/Avenix-Multi',
                     mediaType: 1
                 }
             }
@@ -988,6 +1022,7 @@ global.dfail = (type, m, extra) => {
         owner: '🚫 Solo mi *Propietario* puede usar este comando', 
         mods: '🚫 Solo los *Moderadores* pueden usar este comando',
         premium: '💎 Este comando es solo para usuarios *Premium*\n\n📝 Para ser usuario premium contacta a mi propietario\n*.owner*',
+        premsub: '⭐ Esta función solo puede ser usada por *SubBots Premium*\n\nContacta al propietario para más información',
         group: '📱 Este comando solo se puede usar en *Grupos*',
         private: '👤 Este comando solo se puede usar en *Chat Privado*',
         admin: '👑 Este comando es solo para *Administradores* del grupo',
