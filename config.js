@@ -6,7 +6,7 @@ import cheerio from 'cheerio'
 import fetch from 'node-fetch'
 import axios from 'axios'
 import moment from 'moment-timezone'
-
+//cpnfig.js
 // ═══════════════════════════════════════════════════════════════════════════════
 // │                       𒁈 AVENIX-MULTI V2.0.0 CONFIG 𒁈                       │
 // │                         Creado por: Hepein Oficial                           │
