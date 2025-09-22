@@ -168,7 +168,7 @@ async function showSystemInfo() {
 let isRunning = false;
 let child;
 
-function start(file) {
+/*function start(file) {
     if (isRunning) return;
     isRunning = true;
     
@@ -176,12 +176,10 @@ function start(file) {
     
     const args = [join(__dirname, file), ...process.argv.slice(2)];
     
-    // Spawn del proceso principal
     child = spawn('node', args, { 
         stdio: ['inherit', 'inherit', 'inherit', 'ipc'] 
     });
 
-    // Manejo de mensajes del proceso hijo
     child.on('message', data => {
         switch (data) {
             case 'reset':
@@ -196,7 +194,6 @@ function start(file) {
         }
     });
 
-    // Manejo de salida del proceso
     child.on('exit', (code, signal) => {
         isRunning = false;
         
@@ -211,13 +208,11 @@ function start(file) {
         }
     });
 
-    // Manejo de errores
     child.on('error', (error) => {
         console.error(chalk.red('𒁈 Error en el proceso:'), error);
         isRunning = false;
     });
 
-    // Configuración de argumentos y línea de comandos
     const opts = yargs(process.argv.slice(2)).exitProcess(false).parse();
     
     if (!opts['test']) {
@@ -230,7 +225,6 @@ function start(file) {
         }
     }
 
-    // Watchfile para auto-reload
     watchFile(args[0], () => {
         unwatchFile(args[0]);
         console.log(chalk.cyan(`𒁈 Detectados cambios en ${file}, reiniciando...`));
@@ -240,6 +234,47 @@ function start(file) {
         isRunning = false;
         setTimeout(() => start(file), 1000);
     });
+}*/
+
+function start(file) {
+    if (isRunning) {
+        console.log(chalk.yellow('𒁈 Bot ya está ejecutándose...'));
+        return;
+    }
+    isRunning = true;
+    
+    console.log(chalk.cyan(`\n𒁈 Iniciando ${file}...\n`));
+    
+    const args = [join(__dirname, file), ...process.argv.slice(2)];
+    
+    // Spawn del proceso principal
+    child = spawn('node', args, { 
+        stdio: ['inherit', 'inherit', 'inherit', 'ipc'] 
+    });
+
+    // Manejo de salida del proceso
+    child.on('exit', (code, signal) => {
+        isRunning = false;
+        
+        if (code === null && signal) {
+            console.log(chalk.red(`𒁈 Proceso terminado por señal: ${signal}`));
+        } else if (code === 0) {
+            console.log(chalk.green('𒁈 Proceso terminado correctamente'));
+        } else {
+            console.log(chalk.red(`𒁈 Proceso terminado con código: ${code}`));
+            // ELIMINAR EL AUTO-RESTART AQUÍ
+            // setTimeout(() => start(file), 3000); // ← COMENTAR O ELIMINAR ESTA LÍNEA
+        }
+    });
+
+    // Manejo de errores
+    child.on('error', (error) => {
+        console.error(chalk.red('𒁈 Error en el proceso:'), error);
+        isRunning = false;
+    });
+
+    // ELIMINAR TODO EL WATCHFILE DE AQUÍ:
+    // watchFile(args[0], () => { ... }); ← ELIMINAR TODA ESTA SECCIÓN
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
