@@ -859,11 +859,11 @@ async function joinChannels(conn) {
 // │                           WATCHFILE PARA AUTO-RELOAD                        │
 // ═══════════════════════════════════════════════════════════════════════════════
 
-let file = fileURLToPath(import.meta.url)
+/*let file = fileURLToPath(import.meta.url)
 watchFile(file, () => {
     unwatchFile(file)
     console.log(chalk.bold.greenBright('𒁈 Main.js actualizado y reiniciado'))
     import(`${file}?update=${Date.now()}`)
-})
+})*/
 
 console.log(chalk.bold.magenta('𒁈 Avenix-Multi V2.0.0 iniciado por Hepein Oficial'))
