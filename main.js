@@ -523,6 +523,10 @@ setInterval(async () => {
 // │                        MANEJO DE ACTUALIZACIONES DE CONEXIÓN                │
 // ═══════════════════════════════════════════════════════════════════════════════
 
+let lastQRTime = 0;
+const QR_INTERVAL = 15000; // 15 segundos entre QRs
+let qrDisplayed = false;
+
 async function connectionUpdate(update) {  
     const {connection, lastDisconnect, isNewLogin, qr} = update
     global.stopped = connection
