@@ -17,11 +17,25 @@
 //main.js
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '1';
 
-// Detectar modo de ejecución desde argumentos o variables de entorno
-const AVENIX_MODE = process.env.AVENIX_MODE || process.argv[2] || 'auto';
-const DISABLE_TESTS = process.env.DISABLE_TESTS === 'true' || process.argv.includes('--no-tests');
+// BLOQUEAR IMPORTS AUTOMÁTICOS DE TEST ANTES DE CUALQUIER IMPORT
+const originalImport = global.__dirname ? global.__dirname : (() => {});
+const args = process.argv.slice(2);
+const isQRMode = args.includes('qr');
+const isCodeMode = args.includes('code');
 
-console.log(chalk.blue(`𒁈 Modo detectado: ${AVENIX_MODE}`));
+// Interceptar imports de test.js solo en modos QR/Code
+if (isQRMode || isCodeMode) {
+    const Module = require('module');
+    const originalResolveFilename = Module._resolveFilename;
+    Module._resolveFilename = function(request, parent, isMain) {
+        if (request.includes('test.js') || request.includes('./test')) {
+            // Devolver un módulo vacío en lugar del test
+            return require.resolve('events'); // Módulo seguro que existe
+        }
+        return originalResolveFilename.call(this, request, parent, isMain);
+    };
+    console.log(chalk.gray('🚫 Tests bloqueados en modo ' + (isQRMode ? 'QR' : 'Code')));
+}
 
 import './config.js'; 
 import { createRequire } from 'module';
@@ -292,13 +306,14 @@ const question = (texto) => {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// │                      CONTROL DE GENERACIÓN DE QR                            │
+// │                      CONTROL DE GENERACIÓN DE QR MEJORADO                   │
 // ═══════════════════════════════════════════════════════════════════════════════
 
 let qrGenerated = false;
 let qrTimeout = null;
 let qrCount = 0;
 const MAX_QR_ATTEMPTS = 10;
+let qrActive = false; // Nueva variable para control estricto
 
 function clearQRTimeout() {
     if (qrTimeout) {
@@ -310,16 +325,17 @@ function clearQRTimeout() {
 function setupQRTimeout() {
     clearQRTimeout();
     qrTimeout = setTimeout(() => {
-        if (!conn.user && qrCount < MAX_QR_ATTEMPTS) {
-            console.log(chalk.yellow('\n𒁈 QR expirado después de 45 segundos. Generando nuevo QR...'));
+        if (!conn.user && qrCount < MAX_QR_ATTEMPTS && qrActive) {
+            console.log(chalk.yellow('\n⏰ QR expirado después de 45 segundos. Generando nuevo QR...'));
             qrGenerated = false;
+            qrActive = false; // Desactivar temporalmente
             qrCount++;
-            // El QR se regenerará automáticamente en el próximo ciclo
+            // El nuevo QR se generará automáticamente
         } else if (qrCount >= MAX_QR_ATTEMPTS) {
-            console.log(chalk.red('\n𒁈 Máximo de intentos de QR alcanzado. Reiniciando...'));
+            console.log(chalk.red('\n❌ Máximo de intentos de QR alcanzado. Reiniciando...'));
             process.exit(1);
         }
-    }, 45000); // 45 segundos
+    }, 45000); // Exactamente 45 segundos
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -327,16 +343,16 @@ function setupQRTimeout() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 let opcion;
-const methodCodeQR = AVENIX_MODE === 'qr' || process.argv.includes("qr");
-const methodCode = AVENIX_MODE === 'code' || !!phoneNumber || process.argv.includes("code");
+const methodCodeQR = isQRMode || process.argv.includes("qr");
+const methodCode = isCodeMode || !!phoneNumber || process.argv.includes("code");
 const MethodMobile = process.argv.includes("mobile");
 
 console.log(chalk.gray(`𒁈 Argumentos detectados: ${process.argv.slice(2).join(', ') || 'ninguno'}`));
 
-if (methodCodeQR || AVENIX_MODE === 'qr') {
+if (methodCodeQR) {
     opcion = '1';
     console.log(chalk.green('𒁈 Método QR seleccionado automáticamente'));
-} else if (methodCode || AVENIX_MODE === 'code') {
+} else if (methodCode) {
     opcion = '2';
     console.log(chalk.green('𒁈 Método código de 8 dígitos seleccionado automáticamente'));
 } else if (!fs.existsSync(`./${authFile}/creds.json`)) {
@@ -536,48 +552,48 @@ async function connectionUpdate(update) {
     
     if (global.db.data == null) loadDatabase()
     
-    // MANEJO CONTROLADO DEL QR
-    if (qr && (opcion == '1' || methodCodeQR || AVENIX_MODE === 'qr')) {
-        if (!qrGenerated) {
-            qrGenerated = true;
-            qrCount++;
-            
-            console.clear();
-            console.log(chalk.cyan('╭' + '─'.repeat(60) + '╮'));
-            console.log(chalk.cyan('│') + chalk.bold.yellow(' '.repeat(15) + '𒁈 CÓDIGO QR AVENIX-MULTI 𒁈' + ' '.repeat(15)) + chalk.cyan('│'));
-            console.log(chalk.cyan('│') + chalk.gray(' '.repeat(20) + 'Escanea con WhatsApp' + ' '.repeat(20)) + chalk.cyan('│'));
-            console.log(chalk.cyan('├' + '─'.repeat(60) + '┤'));
-            console.log(chalk.cyan('│') + chalk.white(` ⏰ QR expira en 45 segundos`.padEnd(58)) + chalk.cyan('│'));
-            console.log(chalk.cyan('│') + chalk.yellow(` 📱 Intento: ${qrCount}/${MAX_QR_ATTEMPTS}`.padEnd(58)) + chalk.cyan('│'));
-            console.log(chalk.cyan('│') + chalk.blue(` 👑 Creado por: Hepein Oficial`.padEnd(58)) + chalk.cyan('│'));
-            console.log(chalk.cyan('╰' + '─'.repeat(60) + '╯'));
-            
-            // Mostrar QR en terminal
+    // CONTROL ULTRA ESTRICTO DEL QR - SOLO UNA VEZ POR CICLO
+    if (qr && (opcion == '1' || methodCodeQR) && !qrGenerated && !qrActive) {
+        qrGenerated = true;
+        qrActive = true;
+        qrCount++;
+        
+        console.clear();
+        console.log(chalk.cyan('╭' + '─'.repeat(60) + '╮'));
+        console.log(chalk.cyan('│') + chalk.bold.yellow(' '.repeat(15) + '𒁈 CÓDIGO QR AVENIX-MULTI 𒁈' + ' '.repeat(15)) + chalk.cyan('│'));
+        console.log(chalk.cyan('│') + chalk.gray(' '.repeat(20) + 'Escanea con WhatsApp' + ' '.repeat(20)) + chalk.cyan('│'));
+        console.log(chalk.cyan('├' + '─'.repeat(60) + '┤'));
+        console.log(chalk.cyan('│') + chalk.white(` ⏰ QR expira en 45 segundos`.padEnd(58)) + chalk.cyan('│'));
+        console.log(chalk.cyan('│') + chalk.yellow(` 📱 Intento: ${qrCount}/${MAX_QR_ATTEMPTS}`.padEnd(58)) + chalk.cyan('│'));
+        console.log(chalk.cyan('│') + chalk.blue(` 👑 Creado por: Hepein Oficial`.padEnd(58)) + chalk.cyan('│'));
+        console.log(chalk.cyan('╰' + '─'.repeat(60) + '╯'));
+        
+        // Mostrar QR en terminal
+        try {
             const QRCode = await import('qrcode');
-            try {
-                const qrString = await QRCode.toString(qr, { 
-                    type: 'terminal',
-                    small: true,
-                    errorCorrectionLevel: 'M'
-                });
-                console.log(qrString);
-            } catch (error) {
-                console.log(chalk.red('𒁈 Error generando QR visual, contacta al desarrollador'));
-                console.log(chalk.yellow('𒁈 QR String:'), qr);
-            }
-            
-            console.log(chalk.cyan('\n𒁈 Escanea el código QR con WhatsApp'));
-            console.log(chalk.yellow(`𒁈 El código expirará automáticamente en 45 segundos...`));
-            console.log(chalk.gray(`𒁈 Si no se escanea, se generará un nuevo QR automáticamente`));
-            
-            // Configurar timeout para este QR específico
-            setupQRTimeout();
+            const qrString = await QRCode.toString(qr, { 
+                type: 'terminal',
+                small: true,
+                errorCorrectionLevel: 'M'
+            });
+            console.log(qrString);
+        } catch (error) {
+            console.log(chalk.red('𒁈 Error generando QR visual, contacta al desarrollador'));
+            console.log(chalk.yellow('𒁈 QR String:'), qr);
         }
+        
+        console.log(chalk.cyan('\n𒁈 Escanea el código QR con WhatsApp'));
+        console.log(chalk.yellow(`𒁈 El código expirará automáticamente en 45 segundos...`));
+        console.log(chalk.gray(`𒁈 Si no se escanea, se generará un nuevo QR automáticamente`));
+        
+        // Configurar timeout para este QR específico
+        setupQRTimeout();
     }
     
     if (connection == 'open') {
         clearQRTimeout(); // Limpiar timeout si se conecta
         qrGenerated = false;
+        qrActive = false;
         qrCount = 0;
         
         console.clear();
@@ -594,6 +610,7 @@ async function connectionUpdate(update) {
     if (connection === 'close') {
         clearQRTimeout(); // Limpiar timeout si se desconecta
         qrGenerated = false;
+        qrActive = false;
         
         if (reason === DisconnectReason.badSession) {
             console.log(chalk.bold.cyanBright('𒁈 Sesión incorrecta, eliminando y reconectando...'))
@@ -708,7 +725,7 @@ if (global.AvenixJadibts) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// │                          CARGA DE PLUGINS                                   │
+// │                          CARGA DE PLUGINS CONTROLADA                        │
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const pluginFolder = global.__dirname(join(__dirname, './plugins'))
@@ -729,6 +746,7 @@ async function filesInit() {
 }
 filesInit().then((_) => Object.keys(global.plugins)).catch(console.error)
 
+// RELOADER MODIFICADO - SIN WATCHER AGRESIVO EN MODO QR/CODE
 global.reload = async (_ev, filename) => {
     if (pluginFilter(filename)) {
         const dir = global.__filename(join(pluginFolder, filename), true)
@@ -760,30 +778,17 @@ global.reload = async (_ev, filename) => {
 };
 
 Object.freeze(global.reload);
-watch(pluginFolder, global.reload);
+
+// SOLO ACTIVAR WATCHER SI NO ES MODO QR/CODE PARA EVITAR BUCLES
+if (!isQRMode && !isCodeMode) {
+    watch(pluginFolder, global.reload);
+}
+
 await global.reloadHandler();
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // │                        FUNCIONES DE LIMPIEZA Y MANTENIMIENTO                │
 // ═══════════════════════════════════════════════════════════════════════════════
-
-// Solo ejecutar tests si no están deshabilitados
-if (!DISABLE_TESTS && process.argv.includes('--run-tests')) {
-    try {
-        const TestSuite = await import('./test.js');
-        console.log(chalk.blue('𒁈 Ejecutando suite de tests...'));
-        // Ejecutar tests en segundo plano
-        setTimeout(async () => {
-            try {
-                await TestSuite.default();
-            } catch (error) {
-                console.log(chalk.yellow('𒁈 Tests completados con advertencias'));
-            }
-        }, 5000);
-    } catch (error) {
-        console.log(chalk.gray('𒁈 Suite de tests no disponible'));
-    }
-}
 
 async function _quickTest() {
     const test = await Promise.all([
@@ -969,14 +974,17 @@ async function joinChannels(conn) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// │                           WATCHFILE PARA AUTO-RELOAD                        │
+// │                           WATCHFILE CONTROLADO                              │
 // ═══════════════════════════════════════════════════════════════════════════════
 
-let file = fileURLToPath(import.meta.url)
-watchFile(file, () => {
-    unwatchFile(file)
-    console.log(chalk.bold.greenBright('𒁈 Main.js actualizado y reiniciado'))
-    import(`${file}?update=${Date.now()}`)
-})
+// SOLO ACTIVAR WATCHFILE SI NO ES MODO QR/CODE
+if (!isQRMode && !isCodeMode) {
+    let file = fileURLToPath(import.meta.url)
+    watchFile(file, () => {
+        unwatchFile(file)
+        console.log(chalk.bold.greenBright('𒁈 Main.js actualizado y reiniciado'))
+        import(`${file}?update=${Date.now()}`)
+    })
+}
 
 console.log(chalk.bold.magenta('𒁈 Avenix-Multi V2.0.0 iniciado por Hepein Oficial'))
