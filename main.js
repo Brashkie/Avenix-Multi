@@ -55,6 +55,7 @@ const { makeInMemoryStore, DisconnectReason, useMultiFileAuthState, MessageRetry
 const { CONNECTING } = ws;
 const { chain } = lodash;
 const PORT = process.env.PORT || process.env.SERVER_PORT || 3000;
+
 protoType();
 serialize();
 
@@ -273,9 +274,6 @@ const msgRetryCounterCache = new NodeCache({ stdTTL: 0, checkperiod: 0 });
 const userDevicesCache = new NodeCache({ stdTTL: 0, checkperiod: 0 });
 const {version} = await fetchLatestBaileysVersion();
 let phoneNumber = global.botNumberCode;
-const methodCodeQR = process.argv.includes("qr");
-const methodCode = !!phoneNumber || process.argv.includes("code");
-const MethodMobile = process.argv.includes("mobile");
 
 let rl = readline.createInterface({
     input: process.stdin,
@@ -333,12 +331,14 @@ const methodCodeQR = AVENIX_MODE === 'qr' || process.argv.includes("qr");
 const methodCode = AVENIX_MODE === 'code' || !!phoneNumber || process.argv.includes("code");
 const MethodMobile = process.argv.includes("mobile");
 
+console.log(chalk.gray(`𒁈 Argumentos detectados: ${process.argv.slice(2).join(', ') || 'ninguno'}`));
+
 if (methodCodeQR || AVENIX_MODE === 'qr') {
     opcion = '1';
-    console.log(chalk.green('𒁈 Método QR seleccionado desde argumentos'));
+    console.log(chalk.green('𒁈 Método QR seleccionado automáticamente'));
 } else if (methodCode || AVENIX_MODE === 'code') {
     opcion = '2';
-    console.log(chalk.green('𒁈 Método código de 8 dígitos seleccionado desde argumentos'));
+    console.log(chalk.green('𒁈 Método código de 8 dígitos seleccionado automáticamente'));
 } else if (!fs.existsSync(`./${authFile}/creds.json`)) {
     // Solo mostrar menú interactivo si no hay sesión y no se especificó método
     do {
@@ -374,7 +374,7 @@ if (methodCodeQR || AVENIX_MODE === 'qr') {
 } else {
     // Si existe sesión, usar modo automático
     opcion = '1'; // Default QR si hay sesión existente
-    console.log(chalk.blue('𒁈 Sesión existente detectada, conectando...'));
+    console.log(chalk.blue('𒁈 Sesión existente detectada, iniciando automáticamente...'));
 }
 
 // Filtros para logs no deseados
