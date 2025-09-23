@@ -8,7 +8,7 @@
  * ┃                      🚀 INDEX.JS - PUNTO DE ENTRADA 🚀                       ┃
  * ┃                                                                               ┃
  * ┃     👑 Creado por: Hepein Oficial                                            ┃
- * ┃     📧 Contacto: electronicatodo2006@gmail.com                               ┃
+ * ┃     📧 Contacto: electronicatudo2006@gmail.com                               ┃
  * ┃     📱 WhatsApp: +51 916360161                                               ┃
  * ┃     🌟 GitHub: https://github.com/Brashkie/Avenix-Multi                      ┃
  * ┃                                                                               ┃
@@ -25,7 +25,6 @@ import yargs from 'yargs';
 import chalk from 'chalk';
 import { spawn } from 'child_process';
 import os from 'os';
-import { promises as fsPromises } from 'fs';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // │                           CONFIGURACIONES INICIALES                         │
@@ -36,6 +35,13 @@ const require = createRequire(__dirname);
 const { name, description, author, version } = require(join(__dirname, './package.json'));
 const { say } = cfonts;
 const rl = createInterface(process.stdin, process.stdout);
+
+// Variables de control
+let isRunning = false;
+let child;
+let isShuttingDown = false;
+let restartCount = 0;
+const MAX_RESTARTS = 3;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // │                       VERIFICACIÓN DE DIRECTORIOS                           │
@@ -65,8 +71,6 @@ function verifyDirectories() {
             } else {
                 console.log(chalk.gray(`  📁 Directorio existe: ${dir}`));
             }
-        } else {
-            console.warn(chalk.yellow(`  ⚠️  Ruta inválida: ${dir}`));
         }
     }
     console.log(chalk.cyan('𒁈 Verificación completada.\n'));
@@ -165,28 +169,44 @@ async function showSystemInfo() {
 // │                           FUNCIÓN DE INICIO PRINCIPAL                       │
 // ═══════════════════════════════════════════════════════════════════════════════
 
-let isRunning = false;
-let child;
-
 function start(file) {
-    if (isRunning) return;
-    isRunning = true;
+    if (isRunning || isShuttingDown) {
+        console.log(chalk.yellow('𒁈 Proceso ya en ejecución o cerrando...'));
+        return;
+    }
     
+    isRunning = true;
     console.log(chalk.cyan(`\n𒁈 Iniciando ${file}...\n`));
     
+    // Detectar modo desde argumentos
+    const mode = process.argv[2]; // 'qr', 'code', etc.
     const args = [join(__dirname, file), ...process.argv.slice(2)];
     
+    // Configurar variables de entorno según el modo
+    const env = { 
+        ...process.env, 
+        DISABLE_TESTS: 'true', // Siempre deshabilitar tests desde index.js
+        AVENIX_MODE: mode || 'auto' // Pasar el modo a main.js
+    };
+    
     child = spawn('node', args, { 
-        stdio: ['inherit', 'inherit', 'inherit', 'ipc'] 
+        stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
+        env: env
     });
 
     child.on('message', data => {
         switch (data) {
             case 'reset':
-                console.log(chalk.yellow('𒁈 Reiniciando bot...'));
-                child.kill();
-                isRunning = false;
-                setTimeout(() => start(file), 2000);
+                if (restartCount < MAX_RESTARTS) {
+                    console.log(chalk.yellow('𒁈 Reiniciando bot...'));
+                    child.kill();
+                    isRunning = false;
+                    restartCount++;
+                    setTimeout(() => start(file), 3000);
+                } else {
+                    console.log(chalk.red('𒁈 Máximo de reinicios alcanzado. Deteniendo...'));
+                    gracefulShutdown();
+                }
                 break;
             case 'uptime':
                 child.send(process.uptime());
@@ -197,20 +217,48 @@ function start(file) {
     child.on('exit', (code, signal) => {
         isRunning = false;
         
+        if (isShuttingDown) {
+            console.log(chalk.green('𒁈 Proceso cerrado correctamente'));
+            return;
+        }
+        
         if (code === null && signal) {
             console.log(chalk.red(`𒁈 Proceso terminado por señal: ${signal}`));
         } else if (code === 0) {
             console.log(chalk.green('𒁈 Proceso terminado correctamente'));
+            // No reiniciar si terminó correctamente
+            return;
         } else {
             console.log(chalk.red(`𒁈 Proceso terminado con código: ${code}`));
-            console.log(chalk.yellow('𒁈 Reiniciando en 3 segundos...'));
-            setTimeout(() => start(file), 3000);
+            
+            if (restartCount < MAX_RESTARTS) {
+                console.log(chalk.yellow(`𒁈 Reiniciando en 5 segundos... (${restartCount + 1}/${MAX_RESTARTS})`));
+                restartCount++;
+                setTimeout(() => {
+                    if (!isShuttingDown) {
+                        start(file);
+                    }
+                }, 5000);
+            } else {
+                console.log(chalk.red('𒁈 Máximo de reinicios alcanzado. Deteniendo...'));
+                gracefulShutdown();
+            }
         }
     });
 
     child.on('error', (error) => {
         console.error(chalk.red('𒁈 Error en el proceso:'), error);
         isRunning = false;
+        
+        if (restartCount < MAX_RESTARTS) {
+            console.log(chalk.yellow('𒁈 Reintentando en 5 segundos...'));
+            restartCount++;
+            setTimeout(() => {
+                if (!isShuttingDown) {
+                    start(file);
+                }
+            }, 5000);
+        }
     });
 
     const opts = yargs(process.argv.slice(2)).exitProcess(false).parse();
@@ -225,47 +273,88 @@ function start(file) {
         }
     }
 
-    watchFile(args[0], () => {
-        unwatchFile(args[0]);
-        console.log(chalk.cyan(`𒁈 Detectados cambios en ${file}, reiniciando...`));
-        if (child) {
-            child.kill();
-        }
-        isRunning = false;
-        setTimeout(() => start(file), 1000);
+    // WATCHER OPTIMIZADO - Solo para cambios importantes
+    const watchedFile = join(__dirname, file);
+    let watchTimeout;
+    
+    watchFile(watchedFile, { interval: 5000 }, () => {
+        // Debounce para evitar múltiples reinicios
+        clearTimeout(watchTimeout);
+        watchTimeout = setTimeout(() => {
+            if (!isShuttingDown && isRunning) {
+                unwatchFile(watchedFile);
+                console.log(chalk.cyan(`𒁈 Detectados cambios en ${file}, reiniciando...`));
+                if (child) {
+                    child.kill('SIGTERM');
+                }
+                isRunning = false;
+                setTimeout(() => {
+                    if (!isShuttingDown) {
+                        start(file);
+                    }
+                }, 2000);
+            }
+        }, 1000);
     });
+
+    // Resetear contador de reinicios después de 2 minutos de funcionamiento estable
+    setTimeout(() => {
+        if (isRunning && !isShuttingDown) {
+            restartCount = 0;
+            console.log(chalk.green('𒁈 Bot funcionando establemente'));
+        }
+    }, 120000);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// │                           MANEJO DE ADVERTENCIAS Y ERRORES                  │
+// │                        MANEJO DE CIERRE GRACEFUL                            │
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function gracefulShutdown() {
+    if (isShuttingDown) return;
+    
+    isShuttingDown = true;
+    console.log(chalk.yellow('\n𒁈 Cerrando aplicación...'));
+    
+    if (child) {
+        child.kill('SIGTERM');
+        
+        // Forzar cierre después de 10 segundos
+        setTimeout(() => {
+            if (child && !child.killed) {
+                console.log(chalk.red('𒁈 Forzando cierre del proceso...'));
+                child.kill('SIGKILL');
+            }
+        }, 10000);
+    }
+    
+    // Cerrar readline
+    if (rl) {
+        rl.close();
+    }
+    
+    setTimeout(() => {
+        process.exit(0);
+    }, 1000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// │                       MANEJO DE ADVERTENCIAS Y ERRORES                      │
 // ═══════════════════════════════════════════════════════════════════════════════
 
 process.on('warning', (warning) => {
     if (warning.name === 'MaxListenersExceededWarning') {
         console.warn(chalk.yellow('𒁈 Advertencia: Se excedió el límite de listeners'));
-        console.warn(chalk.gray(warning.stack));
     }
 });
 
 process.on('uncaughtException', (error) => {
-    if (error.code === 'ENOSPC') {
-        console.error(chalk.red('𒁈 Error: Sin espacio o límite de watchers alcanzado'));
-        console.error(chalk.yellow('𒁈 Reiniciando sistema...'));
-    } else {
-        console.error(chalk.red('𒁈 Error no capturado:'), error);
-    }
-    
-    // Intentar limpiar el proceso hijo antes de salir
-    if (child) {
-        child.kill('SIGTERM');
-    }
-    
-    process.exit(1);
+    console.error(chalk.red('𒁈 Error no capturado:'), error.message);
+    gracefulShutdown();
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error(chalk.red('𒁈 Promesa rechazada no manejada:'), reason);
-    console.error(chalk.gray('Promesa:'), promise);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -286,30 +375,24 @@ async function init() {
     
     // Pequeña pausa para mejor experiencia visual
     console.log(chalk.cyan('\n𒁈 Preparando inicio del sistema...\n'));
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     // Iniciar el bot
     start('main.js');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// │                              MANEJO DE CIERRE                               │
+// │                              MANEJO DE SEÑALES                              │
 // ═══════════════════════════════════════════════════════════════════════════════
 
 process.on('SIGINT', () => {
-    console.log(chalk.yellow('\n𒁈 Recibida señal SIGINT, cerrando aplicación...'));
-    if (child) {
-        child.kill('SIGTERM');
-    }
-    process.exit(0);
+    console.log(chalk.yellow('\n𒁈 Recibida señal SIGINT...'));
+    gracefulShutdown();
 });
 
 process.on('SIGTERM', () => {
-    console.log(chalk.yellow('\n𒁈 Recibida señal SIGTERM, cerrando aplicación...'));
-    if (child) {
-        child.kill('SIGTERM');
-    }
-    process.exit(0);
+    console.log(chalk.yellow('\n𒁈 Recibida señal SIGTERM...'));
+    gracefulShutdown();
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -318,5 +401,5 @@ process.on('SIGTERM', () => {
 
 init().catch(error => {
     console.error(chalk.red('𒁈 Error durante la inicialización:'), error);
-    process.exit(1);
+    gracefulShutdown();
 });
