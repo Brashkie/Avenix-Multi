@@ -536,74 +536,96 @@ async function connectionUpdate(update) {
     
     if (global.db.data == null) loadDatabase()
     
-    // MANEJO CONTROLADO DEL QR
+    // MANEJO CONTROLADO DEL QR - VERSIÓN CORREGIDA
     if (qr && (opcion == '1' || methodCodeQR || AVENIX_MODE === 'qr')) {
-        if (!qrGenerated) {
-            qrGenerated = true;
-            qrCount++;
-            
+        const now = Date.now();
+        
+        // Prevenir QR repetidos con intervalo estricto
+        if (now - lastQRTime < QR_INTERVAL) {
+            return; // Ignorar QR duplicados
+        }
+        
+        // Si ya estamos conectados, no mostrar más QRs
+        if (conn.user) {
+            console.log(chalk.green('𒁈 Bot ya conectado, ignorando QR adicionales'));
+            return;
+        }
+        
+        lastQRTime = now;
+        qrCount++;
+        
+        // Limpiar pantalla solo para el primer QR
+        if (!qrDisplayed) {
             console.clear();
-            console.log(chalk.cyan('╭' + '─'.repeat(60) + '╮'));
-            console.log(chalk.cyan('│') + chalk.bold.yellow(' '.repeat(15) + '𒁈 CÓDIGO QR AVENIX-MULTI 𒁈' + ' '.repeat(15)) + chalk.cyan('│'));
-            console.log(chalk.cyan('│') + chalk.gray(' '.repeat(20) + 'Escanea con WhatsApp' + ' '.repeat(20)) + chalk.cyan('│'));
-            console.log(chalk.cyan('├' + '─'.repeat(60) + '┤'));
-            console.log(chalk.cyan('│') + chalk.white(` ⏰ QR expira en 45 segundos`.padEnd(58)) + chalk.cyan('│'));
-            console.log(chalk.cyan('│') + chalk.yellow(` 📱 Intento: ${qrCount}/${MAX_QR_ATTEMPTS}`.padEnd(58)) + chalk.cyan('│'));
-            console.log(chalk.cyan('│') + chalk.blue(` 👑 Creado por: Hepein Oficial`.padEnd(58)) + chalk.cyan('│'));
-            console.log(chalk.cyan('╰' + '─'.repeat(60) + '╯'));
-            
-            // Mostrar QR en terminal
+            qrDisplayed = true;
+        }
+        
+        console.log(chalk.cyan('\n╭' + '─'.repeat(60) + '╮'));
+        console.log(chalk.cyan('│') + chalk.bold.yellow(' '.repeat(15) + '𒁈 AVENIX-MULTI QR CODE 𒁈' + ' '.repeat(15)) + chalk.cyan('│'));
+        console.log(chalk.cyan('│') + chalk.gray(' '.repeat(20) + 'Escanea con WhatsApp' + ' '.repeat(20)) + chalk.cyan('│'));
+        console.log(chalk.cyan('├' + '─'.repeat(60) + '┤'));
+        console.log(chalk.cyan('│') + chalk.white(` ⏰ QR #${qrCount} - Válido por 15 segundos`.padEnd(58)) + chalk.cyan('│'));
+        console.log(chalk.cyan('│') + chalk.blue(` 👑 Creado por: Hepein Oficial`.padEnd(58)) + chalk.cyan('│'));
+        console.log(chalk.cyan('╰' + '─'.repeat(60) + '╯'));
+        
+        // Mostrar QR en terminal
+        try {
             const QRCode = await import('qrcode');
-            try {
-                const qrString = await QRCode.toString(qr, { 
-                    type: 'terminal',
-                    small: true,
-                    errorCorrectionLevel: 'M'
-                });
-                console.log(qrString);
-            } catch (error) {
-                console.log(chalk.red('𒁈 Error generando QR visual, contacta al desarrollador'));
-                console.log(chalk.yellow('𒁈 QR String:'), qr);
-            }
-            
-            console.log(chalk.cyan('\n𒁈 Escanea el código QR con WhatsApp'));
-            console.log(chalk.yellow(`𒁈 El código expirará automáticamente en 45 segundos...`));
-            console.log(chalk.gray(`𒁈 Si no se escanea, se generará un nuevo QR automáticamente`));
-            
-            // Configurar timeout para este QR específico
-            setupQRTimeout();
+            const qrString = await QRCode.toString(qr, { 
+                type: 'terminal',
+                small: true,
+                errorCorrectionLevel: 'M',
+                margin: 1
+            });
+            console.log(qrString);
+            console.log(chalk.cyan('𒁈 Escanea el QR con WhatsApp - Se renovará automáticamente\n'));
+        } catch (error) {
+            console.log(chalk.red('𒁈 Error mostrando QR visual'));
+            console.log(chalk.yellow('𒁈 QR String:'), qr);
+        }
+        
+        // Límite de intentos
+        if (qrCount >= MAX_QR_ATTEMPTS) {
+            console.log(chalk.red('\n𒁈 Límite de QRs alcanzado. Reiniciando proceso...'));
+            setTimeout(() => {
+                process.exit(0); // Salida limpia
+            }, 2000);
         }
     }
     
     if (connection == 'open') {
-        clearQRTimeout(); // Limpiar timeout si se conecta
-        qrGenerated = false;
+        // Resetear variables de control
         qrCount = 0;
+        lastQRTime = 0;
+        qrDisplayed = false;
         
         console.clear();
-        console.log(chalk.bold.greenBright('╭' + '─'.repeat(50) + '╮'));
+        console.log(chalk.bold.greenBright('\n╭' + '─'.repeat(50) + '╮'));
         console.log(chalk.bold.greenBright('│') + chalk.bold.white(' '.repeat(8) + '🎉 CONEXIÓN EXITOSA 🎉' + ' '.repeat(8)) + chalk.bold.greenBright('│'));
-        console.log(chalk.bold.greenBright('│') + chalk.white(' '.repeat(6) + 'Avenix-Multi conectado' + ' '.repeat(10)) + chalk.bold.greenBright('│'));
-        console.log(chalk.bold.greenBright('╰' + '─'.repeat(50) + '╯'));
+        console.log(chalk.bold.greenBright('│') + chalk.white(' '.repeat(6) + 'Avenix-Multi V2.0.0 Conectado' + ' '.repeat(6)) + chalk.bold.greenBright('│'));
+        console.log(chalk.bold.greenBright('│') + chalk.cyan(' '.repeat(10) + 'Por: Hepein Oficial' + ' '.repeat(15)) + chalk.bold.greenBright('│'));
+        console.log(chalk.bold.greenBright('╰' + '─'.repeat(50) + '╯\n'));
         
-        await joinChannels(conn)
+        await joinChannels(conn);
     }
     
     let reason = new Boom(lastDisconnect?.error)?.output?.statusCode
     
     if (connection === 'close') {
-        clearQRTimeout(); // Limpiar timeout si se desconecta
-        qrGenerated = false;
+        // Resetear variables
+        qrCount = 0;
+        lastQRTime = 0;
+        qrDisplayed = false;
         
         if (reason === DisconnectReason.badSession) {
             console.log(chalk.bold.cyanBright('𒁈 Sesión incorrecta, eliminando y reconectando...'))
         } else if (reason === DisconnectReason.connectionClosed) {
             console.log(chalk.bold.magentaBright('𒁈 Conexión cerrada, restaurando respaldo...'))
-            restoreCreds();
+            await restoreCreds();
             await global.reloadHandler(true).catch(console.error)
         } else if (reason === DisconnectReason.connectionLost) {
             console.log(chalk.bold.blueBright('𒁈 Conexión perdida, restaurando y reconectando...'))
-            restoreCreds();
+            await restoreCreds();
             await global.reloadHandler(true).catch(console.error)
         } else if (reason === DisconnectReason.connectionReplaced) {
             console.log(chalk.bold.yellowBright('𒁈 Conexión reemplazada por otra sesión.'))
@@ -768,7 +790,7 @@ await global.reloadHandler();
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // Solo ejecutar tests si no están deshabilitados
-if (!DISABLE_TESTS && process.argv.includes('--run-tests')) {
+/*if (!DISABLE_TESTS && process.argv.includes('--run-tests')) {
     try {
         const TestSuite = await import('./test.js');
         console.log(chalk.blue('𒁈 Ejecutando suite de tests...'));
@@ -783,7 +805,7 @@ if (!DISABLE_TESTS && process.argv.includes('--run-tests')) {
     } catch (error) {
         console.log(chalk.gray('𒁈 Suite de tests no disponible'));
     }
-}
+}*/
 
 async function _quickTest() {
     const test = await Promise.all([
