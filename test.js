@@ -689,9 +689,13 @@ export default AvenixTestSuite;
 // │                    EJECUCIÓN SOLO SI SE LLAMA DIRECTAMENTE                  │
 // ═══════════════════════════════════════════════════════════════════════════════
 
+import { fileURLToPath } from 'url';
+
 // Solo ejecutar si este archivo se ejecuta directamente (no cuando se importa)
-if (import.meta.url === `file://${process.argv[1]}`) {
-    console.log(chalk.blue('🧪 Ejecutando tests desde línea de comandos...'));
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+
+if (isMainModule) {
+    console.log(chalk.blue('🧪 Ejecutando tests directamente...'));
     
     const testSuite = new AvenixTestSuite();
 
@@ -711,4 +715,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         console.error(chalk.red('❌ Error ejecutando tests:'), error);
         process.exit(1);
     });
+} else {
+    // Si se importa, solo mostrar mensaje
+    console.log(chalk.gray('📝 Test suite cargado como módulo (no ejecutado)'));
 }
