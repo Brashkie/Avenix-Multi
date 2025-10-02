@@ -209,7 +209,6 @@ function start(file) {
   let p = fork()
   
   p.on('message', data => {
-    console.log(chalk.cyan('📨 Mensaje recibido:'), data)
     switch (data) {
       case 'reset':
         p.process.kill()
@@ -224,26 +223,15 @@ function start(file) {
   
   p.on('exit', (_, code) => {
     isRunning = false
-    console.error(chalk.red('⚠️ Proceso finalizado con código:'), code)
+    console.error(chalk.red('⚠️ Error:\n'), code)
     
     if (code === 0) return
     
     watchFile(args[0], () => {
       unwatchFile(args[0])
-      console.log(chalk.yellow('🔄 Archivo modificado, reiniciando...'))
       start(file)
     })
   })
-  
-  // Interfaz de comandos
-  let opts = new Object(yargs(process.argv.slice(2)).exitProcess(false).parse())
-  if (!opts['test']) {
-    if (!rl.listenerCount()) {
-      rl.on('line', line => {
-        p.emit('message', line.trim())
-      })
-    }
-  }
 }
 
 // ═══════════════════════════════════════════════════
