@@ -25,8 +25,6 @@ import { createInterface } from 'readline'
 import yargs from 'yargs'
 import chalk from 'chalk'
 
-const { setupPrimary, fork } = cluster
-
 console.log(chalk.cyan('\n𒁈 Iniciando Avenix-Multi v6.0.0...'))
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -203,12 +201,13 @@ function start(file) {
   
   let args = [join(__dirname, file), ...process.argv.slice(2)]
   
-  setupPrimary({
+  // Usar setupMaster directamente desde cluster (compatible con todas las versiones)
+  cluster.setupMaster({
     exec: args[0],
     args: args.slice(1)
   })
   
-  let p = fork()
+  let p = cluster.fork()
   
   p.on('message', data => {
     console.log(chalk.cyan('📨 Mensaje recibido:'), data)
