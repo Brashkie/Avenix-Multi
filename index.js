@@ -25,7 +25,7 @@ import { createInterface } from 'readline'
 import yargs from 'yargs'
 import chalk from 'chalk'
 
-const { setupMaster, fork } = cluster
+const { setupPrimary, fork } = cluster
 
 console.log(chalk.cyan('\n𒁈 Iniciando Avenix-Multi v6.0.0...'))
 
@@ -203,7 +203,7 @@ function start(file) {
   
   let args = [join(__dirname, file), ...process.argv.slice(2)]
   
-  setupMaster({
+  setupPrimary({
     exec: args[0],
     args: args.slice(1)
   })
