@@ -18,7 +18,7 @@
 import { join, dirname } from 'path'
 import { createRequire } from 'module'
 import { fileURLToPath } from 'url'
-import cluster from 'cluster'
+import { setupMaster, fork } from 'cluster'
 import { watchFile, unwatchFile, existsSync, writeFileSync } from 'fs'
 import cfonts from 'cfonts'
 import { createInterface } from 'readline'
@@ -201,13 +201,12 @@ function start(file) {
   
   let args = [join(__dirname, file), ...process.argv.slice(2)]
   
-  // Usar setupMaster directamente desde cluster (compatible con todas las versiones)
-  cluster.setupMaster({
+  setupMaster({
     exec: args[0],
     args: args.slice(1)
   })
   
-  let p = cluster.fork()
+  let p = fork()
   
   p.on('message', data => {
     console.log(chalk.cyan('📨 Mensaje recibido:'), data)
