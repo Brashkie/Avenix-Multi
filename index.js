@@ -15,391 +15,280 @@
  * ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
  */
 //index.js
-import { join, dirname } from 'path';
-import { createRequire } from 'module';
-import { fileURLToPath } from 'url';
-import { watchFile, unwatchFile, existsSync, mkdirSync } from 'fs';
-import cfonts from 'cfonts';
-import { createInterface } from 'readline';
-import yargs from 'yargs';
-import chalk from 'chalk';
-import { spawn } from 'child_process';
-import os from 'os';
+import { join, dirname } from 'path'
+import { createRequire } from 'module'
+import { fileURLToPath } from 'url'
+import { setupMaster, fork } from 'cluster'
+import { watchFile, unwatchFile, existsSync, writeFileSync } from 'fs'
+import cfonts from 'cfonts'
+import { createInterface } from 'readline'
+import yargs from 'yargs'
+import chalk from 'chalk'
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// │                           CONFIGURACIONES INICIALES                         │
-// ═══════════════════════════════════════════════════════════════════════════════
+console.log(chalk.cyan('\n𒁈 Iniciando Avenix-Multi v6.0.0...'))
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const require = createRequire(__dirname);
-const { name, description, author, version } = require(join(__dirname, './package.json'));
-const { say } = cfonts;
-const rl = createInterface(process.stdin, process.stdout);
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const require = createRequire(__dirname)
+const { name, author, version } = require(join(__dirname, './package.json'))
+const rl = createInterface(process.stdin, process.stdout)
 
-// Variables de control
-let isRunning = false;
-let child;
-let isShuttingDown = false;
-let restartCount = 0;
-const MAX_RESTARTS = 3;
+// ═══════════════════════════════════════════════════
+// ANIMACIONES PERSONALIZADAS AVENIX
+// ═══════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// │                       VERIFICACIÓN DE DIRECTORIOS                           │
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function verifyDirectories() {
-    const dirs = [
-        'tmp',
-        'database', 
-        'AvenixSession',
-        'AvenixJadiBot',
-        'BackupSession',
-        'plugins',
-        'lib',
-        'src',
-        'media',
-        'logs'
-    ];
-
-    console.log(chalk.cyan('𒁈 Verificando directorios necesarios...'));
-    
-    for (const dir of dirs) {
-        if (typeof dir === 'string' && dir.trim() !== '') {
-            if (!existsSync(dir)) {
-                mkdirSync(dir, { recursive: true });
-                console.log(chalk.green(`  ✅ Directorio creado: ${dir}`));
-            } else {
-                console.log(chalk.gray(`  📁 Directorio existe: ${dir}`));
-            }
-        }
+async function textoAnimado(texto, velocidad = 45, brillo = true) {
+  const efectos = '◆◇◈⬡⬢⬣▓▒░█║╔╗╚╝⌬'
+  let resultado = ''
+  for (let i = 0; i < texto.length; i++) {
+    resultado += texto[i]
+    let salida = resultado
+    if (brillo && Math.random() > 0.65) {
+      const efecto = efectos[Math.floor(Math.random() * efectos.length)]
+      salida += chalk.cyan.dim(efecto)
     }
-    console.log(chalk.cyan('𒁈 Verificación completada.\n'));
+    process.stdout.write('\r' + chalk.cyan.bold(salida))
+    await new Promise(res => setTimeout(res, velocidad))
+  }
+  console.log()
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// │                              BANNER PRINCIPAL                               │
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function showBanner() {
-    // Banner principal con diseño personalizado
-    say('AVENIX', {
-        font: 'block',
-        align: 'center',
-        colors: ['cyan', 'blue'],
-        background: 'transparent'
-    });
-
-    say('MULTI', {
-        font: 'block', 
-        align: 'center',
-        colors: ['magenta', 'red'],
-        background: 'transparent'
-    });
-
-    say('V2.0.0', {
-        font: 'console',
-        align: 'center',
-        colors: ['yellow']
-    });
-
-    say(`𒁈 Creado por Hepein Oficial 𒁈`, {
-        font: 'console',
-        align: 'center',
-        colors: ['green']
-    });
+async function barraAvenix() {
+  const fases = [
+    '𒁈 [▓░░░░░░░░░] 15%  ⟡ Cargando núcleo...',
+    '𒁈 [▓▓▓░░░░░░░] 35%  ⟡ Inicializando módulos...',
+    '𒁈 [▓▓▓▓▓░░░░░] 55%  ⟡ Conectando servicios...',
+    '𒁈 [▓▓▓▓▓▓▓░░░] 75%  ⟡ Cargando plugins...',
+    '𒁈 [▓▓▓▓▓▓▓▓▓░] 95%  ⟡ Finalizando inicio...',
+    '𒁈 [▓▓▓▓▓▓▓▓▓▓] 100% ✓ Sistema operativo'
+  ]
+  for (let fase of fases) {
+    process.stdout.write('\r' + chalk.magenta.bold(fase))
+    await new Promise(res => setTimeout(res, 280))
+  }
+  console.log()
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// │                         INFORMACIÓN DEL SISTEMA                             │
-// ═══════════════════════════════════════════════════════════════════════════════
-
-async function showSystemInfo() {
-    const ramInGB = os.totalmem() / (1024 * 1024 * 1024);
-    const freeRamInGB = os.freemem() / (1024 * 1024 * 1024);
-    const currentTime = new Date().toLocaleString('es-ES', {
-        timeZone: 'America/Lima',
-        year: 'numeric',
-        month: '2-digit', 
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
-    
-    let lineM = '⋯ ⋯ ⋯ ⋯ ⋯ ⋯ ⋯ ⋯ ⋯ ⋯ ⋯ 》';
-    
-    console.log(chalk.yellow(`╭${lineM}
-┊${chalk.blueBright('╭┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')}
-┊${chalk.blueBright('┊')} ${chalk.cyan.bold('🖥️  INFORMACIÓN DEL SISTEMA')}
-┊${chalk.blueBright('┊')}${chalk.yellow(` 💻 Sistema: ${os.type()} ${os.release()} (${os.arch()})`)}
-┊${chalk.blueBright('┊')}${chalk.yellow(` 🧠 RAM Total: ${ramInGB.toFixed(2)} GB`)}
-┊${chalk.blueBright('┊')}${chalk.yellow(` 💾 RAM Libre: ${freeRamInGB.toFixed(2)} GB`)}
-┊${chalk.blueBright('┊')}${chalk.yellow(` ⚡ Node.js: ${process.version}`)}
-┊${chalk.blueBright('╰┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')}
-┊${chalk.blueBright('╭┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')}
-┊${chalk.blueBright('┊')} ${chalk.magenta.bold('𒁈 INFORMACIÓN DEL BOT')}
-┊${chalk.blueBright('┊')}${chalk.cyan(` 🏷️  Nombre: ${name}`)}
-┊${chalk.blueBright('┊')}${chalk.cyan(` 📦 Versión: ${version}`)}
-┊${chalk.blueBright('┊')}${chalk.cyan(` 📄 Descripción: ${description}`)}
-┊${chalk.blueBright('┊')}${chalk.cyan(` 👑 Autor: ${author?.name || 'Hepein Oficial'}`)}
-┊${chalk.blueBright('╰┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')}
-┊${chalk.blueBright('╭┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')}
-┊${chalk.blueBright('┊')} ${chalk.green.bold('⏰ TIEMPO Y ESTADO')}
-┊${chalk.blueBright('┊')}${chalk.cyan(` 🕐 Hora actual: ${currentTime}`)}
-┊${chalk.blueBright('┊')}${chalk.cyan(` 🌎 Zona horaria: America/Lima (Perú)`)}
-┊${chalk.blueBright('┊')}${chalk.cyan(` 🚀 Estado: Iniciando sistema...`)}
-┊${chalk.blueBright('╰┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')}
-┊${chalk.blueBright('╭┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')}
-┊${chalk.blueBright('┊')} ${chalk.red.bold('📋 COMANDOS PRINCIPALES')}
-┊${chalk.blueBright('┊')}${chalk.yellow(` • #on anticall    - Activar anti-llamadas`)}
-┊${chalk.blueBright('┊')}${chalk.yellow(` • #off antilink   - Desactivar anti-links`)}
-┊${chalk.blueBright('┊')}${chalk.yellow(` • #on antispam    - Activar anti-spam`)}
-┊${chalk.blueBright('┊')}${chalk.yellow(` • #menu           - Ver lista completa`)}
-┊${chalk.blueBright('╰┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')}
-┊${chalk.blueBright('╭┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')}
-┊${chalk.blueBright('┊')} ${chalk.blue.bold('🔧 COMANDOS DE INICIO')}
-┊${chalk.blueBright('┊')}${chalk.gray(` npm run qr       - Iniciar con código QR`)}
-┊${chalk.blueBright('┊')}${chalk.gray(` npm run code     - Iniciar con código 8 dígitos`)}
-┊${chalk.blueBright('┊')}${chalk.gray(` npm start        - Inicio automático`)}
-┊${chalk.blueBright('╰┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅')}
-╰${lineM}`));
+async function logoAvenix() {
+  const cuadros = [
+    `
+    ╔════════════════════════════╗
+    ║    𒁈  A V E N I X  𒁈     ║
+    ║       ◆━━━━━━━◆           ║
+    ║     MULTI-DEVICE BOT      ║
+    ╚════════════════════════════╝`,
+    `
+    ╔════════════════════════════╗
+    ║    𒁈  A V E N I X  𒁈     ║
+    ║       ◇━━━━━━━◇           ║
+    ║     MULTI-DEVICE BOT      ║
+    ╚════════════════════════════╝`,
+    `
+    ╔════════════════════════════╗
+    ║    𒁈  A V E N I X  𒁈     ║
+    ║       ◈━━━━━━━◈           ║
+    ║     MULTI-DEVICE BOT      ║
+    ╚════════════════════════════╝`
+  ]
+  for (let i = 0; i < 6; i++) {
+    console.clear()
+    console.log(chalk.cyan.bold(cuadros[i % cuadros.length]))
+    await new Promise(res => setTimeout(res, 320))
+  }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// │                           FUNCIÓN DE INICIO PRINCIPAL                       │
-// ═══════════════════════════════════════════════════════════════════════════════
+async function bannerInfo() {
+  console.log(chalk.cyan.bold('\n╔══════════════════════════════════════════╗'))
+  console.log(chalk.cyan.bold('║      𒁈 AVENIX-MULTI v6.0.0 𒁈          ║'))
+  console.log(chalk.cyan.bold('╠══════════════════════════════════════════╣'))
+  console.log(chalk.cyan.bold('║') + chalk.yellow('  👨‍💻 Creador: Hepein Oficial           ') + chalk.cyan.bold('║'))
+  console.log(chalk.cyan.bold('║') + chalk.green('  📱 Contacto: +51916360161             ') + chalk.cyan.bold('║'))
+  console.log(chalk.cyan.bold('║') + chalk.magenta('  🌐 Bot Multi-Propósito WhatsApp       ') + chalk.cyan.bold('║'))
+  console.log(chalk.cyan.bold('╚══════════════════════════════════════════╝\n'))
+}
+
+async function inicioAvenix() {
+  console.clear()
+  
+  // Logo animado
+  await logoAvenix()
+  
+  console.clear()
+  console.log(chalk.cyan.bold('\n╔═════════════════════════════════════════════════╗'))
+  console.log(chalk.cyan.bold('║       𒁈 SISTEMA AVENIX-MULTI ACTIVO 𒁈        ║'))
+  console.log(chalk.cyan.bold('╚═════════════════════════════════════════════════╝\n'))
+  
+  await textoAnimado('⟡ Estableciendo conexión con servicios...', 38, true)
+  await new Promise(res => setTimeout(res, 280))
+  
+  await barraAvenix()
+  await new Promise(res => setTimeout(res, 380))
+  
+  console.log(chalk.magenta.bold('\n▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬'))
+  await textoAnimado('◆ Bot Multi-Propósito Iniciado', 42, false)
+  console.log(chalk.magenta.bold('▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n'))
+  
+  await bannerInfo()
+  
+  await textoAnimado('⟡ Todos los sistemas operativos', 33, true)
+  
+  console.log(chalk.green.bold('\n✓ Avenix-Multi en línea'))
+  console.log(chalk.yellow('⟡ Listo para recibir conexiones...\n'))
+  
+  await new Promise(res => setTimeout(res, 450))
+  
+  // ASCII Art Avenix
+  console.log(chalk.cyan(`
+    ░█████╗░██╗░░░██╗███████╗███╗░░██╗██╗██╗░░██╗
+    ██╔══██╗██║░░░██║██╔════╝████╗░██║██║╚██╗██╔╝
+    ███████║╚██╗░██╔╝█████╗░░██╔██╗██║██║░╚███╔╝░
+    ██╔══██║░╚████╔╝░██╔══╝░░██║╚████║██║░██╔██╗░
+    ██║░░██║░░╚██╔╝░░███████╗██║░╚███║██║██╔╝╚██╗
+    ╚═╝░░╚═╝░░░╚═╝░░░╚══════╝╚═╝░░╚══╝╚═╝╚═╝░░╚═╝
+           M U L T I - D E V I C E  B O T
+  `))
+  
+  console.log(chalk.magenta(`
+    ██╗  ██╗███████╗██████╗ ███████╗██╗███╗   ██╗
+    ██║  ██║██╔════╝██╔══██╗██╔════╝██║████╗  ██║
+    ███████║█████╗  ██████╔╝█████╗  ██║██╔██╗ ██║
+    ██╔══██║██╔══╝  ██╔═══╝ ██╔══╝  ██║██║╚██╗██║
+    ██║  ██║███████╗██║     ███████╗██║██║ ╚████║
+    ╚═╝  ╚═╝╚══════╝╚═╝     ╚══════╝╚═╝╚═╝  ╚═══╝
+  `))
+  
+  console.log(chalk.yellow(`
+    ██████╗ ██████╗  █████╗ ███████╗██╗  ██╗██╗  ██╗██╗███████╗
+    ██╔══██╗██╔══██╗██╔══██╗██╔════╝██║  ██║██║ ██╔╝██║██╔════╝
+    ██████╔╝██████╔╝███████║███████╗███████║█████╔╝ ██║█████╗  
+    ██╔══██╗██╔══██╗██╔══██║╚════██║██╔══██║██╔═██╗ ██║██╔══╝  
+    ██████╔╝██║  ██║██║  ██║███████║██║  ██║██║  ██╗██║███████╗
+    ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝
+  `))
+  
+  console.log(chalk.gray('══════════════════════════════════════════════════'))
+  await textoAnimado('𒁈 Desarrollador Principal: Hepein Oficial', 48, false)
+  await textoAnimado('𒁈 Colaborador: Brashkie', 48, false)
+  await textoAnimado('𒁈 WhatsApp: +51916360161', 48, false)
+  await textoAnimado('𒁈 Versión: 6.0.0', 48, false)
+  console.log(chalk.gray('══════════════════════════════════════════════════\n'))
+}
+
+// ═══════════════════════════════════════════════════
+// MENSAJES DE REINICIO
+// ═══════════════════════════════════════════════════
+
+const reinicioMsg = [
+  '\n𒁈 Sistema Avenix reiniciado ⚡ Todos los módulos activos\n',
+  '\n𒁈 Reinicio completado ✓ Bot operativo nuevamente\n',
+  '\n𒁈 Avenix-Multi recargado ⟡ Sistema estable\n',
+  '\n𒁈 Bot restaurado desde el núcleo 🔄 Listo\n',
+  '\n𒁈 Avenix v6.0.0 ⟡ Reiniciado exitosamente\n'
+]
+
+function msgRandom() {
+  return reinicioMsg[Math.floor(Math.random() * reinicioMsg.length)]
+}
+
+// ═══════════════════════════════════════════════════
+// FUNCIÓN PRINCIPAL - START
+// ═══════════════════════════════════════════════════
+
+let isRunning = false
 
 function start(file) {
-    if (isRunning || isShuttingDown) {
-        console.log(chalk.yellow('𒁈 Proceso ya en ejecución o cerrando...'));
-        return;
+  if (isRunning) return
+  isRunning = true
+  
+  let args = [join(__dirname, file), ...process.argv.slice(2)]
+  
+  setupMaster({
+    exec: args[0],
+    args: args.slice(1)
+  })
+  
+  let p = fork()
+  
+  p.on('message', data => {
+    console.log(chalk.cyan('📨 Mensaje recibido:'), data)
+    switch (data) {
+      case 'reset':
+        p.process.kill()
+        isRunning = false
+        start(file)
+        break
+      case 'uptime':
+        p.send(process.uptime())
+        break
     }
+  })
+  
+  p.on('exit', (_, code) => {
+    isRunning = false
+    console.error(chalk.red('⚠️ Proceso finalizado con código:'), code)
     
-    isRunning = true;
-    console.log(chalk.cyan(`\n𒁈 Iniciando ${file}...\n`));
+    if (code === 0) return
     
-    // Detectar modo desde argumentos
-    const mode = process.argv[2]; // 'qr', 'code', etc.
-    const args = [join(__dirname, file), ...process.argv.slice(2)];
-    
-    // Configurar variables de entorno según el modo
-    const env = { 
-        ...process.env, 
-        DISABLE_TESTS: 'true', // Siempre deshabilitar tests desde index.js
-        AVENIX_MODE: mode || 'auto' // Pasar el modo a main.js
-    };
-    
-    child = spawn('node', args, { 
-        stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
-        env: env
-    });
-
-    child.on('message', data => {
-        switch (data) {
-            case 'reset':
-                if (restartCount < MAX_RESTARTS) {
-                    console.log(chalk.yellow('𒁈 Reiniciando bot...'));
-                    child.kill();
-                    isRunning = false;
-                    restartCount++;
-                    setTimeout(() => start(file), 3000);
-                } else {
-                    console.log(chalk.red('𒁈 Máximo de reinicios alcanzado. Deteniendo...'));
-                    gracefulShutdown();
-                }
-                break;
-            case 'uptime':
-                child.send(process.uptime());
-                break;
-        }
-    });
-
-    child.on('exit', (code, signal) => {
-        isRunning = false;
-        
-        if (isShuttingDown) {
-            console.log(chalk.green('𒁈 Proceso cerrado correctamente'));
-            return;
-        }
-        
-        if (code === null && signal) {
-            console.log(chalk.red(`𒁈 Proceso terminado por señal: ${signal}`));
-        } else if (code === 0) {
-            console.log(chalk.green('𒁈 Proceso terminado correctamente'));
-            // No reiniciar si terminó correctamente
-            return;
-        } else {
-            console.log(chalk.red(`𒁈 Proceso terminado con código: ${code}`));
-            
-            if (restartCount < MAX_RESTARTS) {
-                console.log(chalk.yellow(`𒁈 Reiniciando en 5 segundos... (${restartCount + 1}/${MAX_RESTARTS})`));
-                restartCount++;
-                setTimeout(() => {
-                    if (!isShuttingDown) {
-                        start(file);
-                    }
-                }, 5000);
-            } else {
-                console.log(chalk.red('𒁈 Máximo de reinicios alcanzado. Deteniendo...'));
-                gracefulShutdown();
-            }
-        }
-    });
-
-    child.on('error', (error) => {
-        console.error(chalk.red('𒁈 Error en el proceso:'), error);
-        isRunning = false;
-        
-        if (restartCount < MAX_RESTARTS) {
-            console.log(chalk.yellow('𒁈 Reintentando en 5 segundos...'));
-            restartCount++;
-            setTimeout(() => {
-                if (!isShuttingDown) {
-                    start(file);
-                }
-            }, 5000);
-        }
-    });
-
-    const opts = yargs(process.argv.slice(2)).exitProcess(false).parse();
-    
-    if (!opts['test']) {
-        if (!rl.listenerCount('line')) {
-            rl.on('line', line => {
-                if (child && child.connected) {
-                    child.send(line.trim());
-                }
-            });
-        }
+    watchFile(args[0], () => {
+      unwatchFile(args[0])
+      console.log(chalk.yellow('🔄 Archivo modificado, reiniciando...'))
+      start(file)
+    })
+  })
+  
+  // Interfaz de comandos
+  let opts = new Object(yargs(process.argv.slice(2)).exitProcess(false).parse())
+  if (!opts['test']) {
+    if (!rl.listenerCount()) {
+      rl.on('line', line => {
+        p.emit('message', line.trim())
+      })
     }
-
-    // WATCHER OPTIMIZADO - Solo para cambios importantes
-    const watchedFile = join(__dirname, file);
-    let watchTimeout;
-    
-    watchFile(watchedFile, { interval: 5000 }, () => {
-        // Debounce para evitar múltiples reinicios
-        clearTimeout(watchTimeout);
-        watchTimeout = setTimeout(() => {
-            if (!isShuttingDown && isRunning) {
-                unwatchFile(watchedFile);
-                console.log(chalk.cyan(`𒁈 Detectados cambios en ${file}, reiniciando...`));
-                if (child) {
-                    child.kill('SIGTERM');
-                }
-                isRunning = false;
-                setTimeout(() => {
-                    if (!isShuttingDown) {
-                        start(file);
-                    }
-                }, 2000);
-            }
-        }, 1000);
-    });
-
-    // Resetear contador de reinicios después de 2 minutos de funcionamiento estable
-    setTimeout(() => {
-        if (isRunning && !isShuttingDown) {
-            restartCount = 0;
-            console.log(chalk.green('𒁈 Bot funcionando establemente'));
-        }
-    }, 120000);
+  }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// │                        MANEJO DE CIERRE GRACEFUL                            │
-// ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// MANEJO DE ERRORES Y ADVERTENCIAS
+// ═══════════════════════════════════════════════════
 
-function gracefulShutdown() {
-    if (isShuttingDown) return;
-    
-    isShuttingDown = true;
-    console.log(chalk.yellow('\n𒁈 Cerrando aplicación...'));
-    
-    if (child) {
-        child.kill('SIGTERM');
-        
-        // Forzar cierre después de 10 segundos
-        setTimeout(() => {
-            if (child && !child.killed) {
-                console.log(chalk.red('𒁈 Forzando cierre del proceso...'));
-                child.kill('SIGKILL');
-            }
-        }, 10000);
-    }
-    
-    // Cerrar readline
-    if (rl) {
-        rl.close();
-    }
-    
-    setTimeout(() => {
-        process.exit(0);
-    }, 1000);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// │                       MANEJO DE ADVERTENCIAS Y ERRORES                      │
-// ═══════════════════════════════════════════════════════════════════════════════
-
-process.on('warning', (warning) => {
-    if (warning.name === 'MaxListenersExceededWarning') {
-        console.warn(chalk.yellow('𒁈 Advertencia: Se excedió el límite de listeners'));
-    }
-});
-
-process.on('uncaughtException', (error) => {
-    console.error(chalk.red('𒁈 Error no capturado:'), error.message);
-    gracefulShutdown();
-});
+process.on('warning', warning => {
+  if (warning.name === 'MaxListenersExceededWarning') {
+    console.warn(chalk.yellow('⚠️ Límite de listeners excedido'))
+    console.warn(chalk.dim(warning.stack))
+  }
+})
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error(chalk.red('𒁈 Promesa rechazada no manejada:'), reason);
-});
+  console.log(chalk.red('⚠️ Promesa rechazada sin manejar:'))
+  console.log(reason)
+})
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// │                              INICIO DEL SISTEMA                             │
-// ═══════════════════════════════════════════════════════════════════════════════
-
-async function init() {
-    console.clear();
-    
-    // Mostrar banner
-    showBanner();
-    
-    // Verificar directorios
-    verifyDirectories();
-    
-    // Mostrar información del sistema
-    await showSystemInfo();
-    
-    // Pequeña pausa para mejor experiencia visual
-    console.log(chalk.cyan('\n𒁈 Preparando inicio del sistema...\n'));
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Iniciar el bot
-    start('main.js');
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// │                              MANEJO DE SEÑALES                              │
-// ═══════════════════════════════════════════════════════════════════════════════
+process.on('uncaughtException', (error) => {
+  console.log(chalk.red('⚠️ Excepción no capturada:'))
+  console.log(error)
+})
 
 process.on('SIGINT', () => {
-    console.log(chalk.yellow('\n𒁈 Recibida señal SIGINT...'));
-    gracefulShutdown();
-});
+  console.log(chalk.yellow('\n\n👋 Avenix-Multi detenido por el usuario'))
+  process.exit(0)
+})
 
-process.on('SIGTERM', () => {
-    console.log(chalk.yellow('\n𒁈 Recibida señal SIGTERM...'));
-    gracefulShutdown();
-});
+// ═══════════════════════════════════════════════════
+// INICIALIZACIÓN DEL SISTEMA
+// ═══════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// │                                EJECUTAR INICIO                              │
-// ═══════════════════════════════════════════════════════════════════════════════
+const archivoControl = './.avenix-started'
 
-init().catch(error => {
-    console.error(chalk.red('𒁈 Error durante la inicialización:'), error);
-    gracefulShutdown();
-});
+if (!existsSync(archivoControl)) {
+  // Primera vez ejecutando
+  await inicioAvenix()
+  writeFileSync(archivoControl, `𒁈 AVENIX-MULTI v${version}\nIniciado: ${new Date().toLocaleString()}\nCreado por: ${author.name}`)
+} else {
+  // Reinicio
+  console.log(chalk.cyan.bold(msgRandom()))
+}
+
+// ═══════════════════════════════════════════════════
+// INICIAR EL BOT - Archivo start.js en la raíz
+// ═══════════════════════════════════════════════════
+
+start('start.js')
