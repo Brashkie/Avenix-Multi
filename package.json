@@ -19,7 +19,7 @@
   },
   "directories": {
     "lib": "lib",
-    "src": "src",
+    "src": "storage",
     "plugins": "plugins"
   },
   "keywords": [
