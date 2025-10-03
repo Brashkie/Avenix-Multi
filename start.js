@@ -10,6 +10,7 @@
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '1'
 
 import './config.js'
+// ✅ CORRECCIÓN: Importar cluster como default
 import cluster from 'cluster'
 const { setupMaster, fork } = cluster
 import {watchFile, unwatchFile, existsSync, mkdirSync, readdirSync, statSync, unlinkSync, readFileSync} from 'fs'
@@ -71,9 +72,20 @@ global.opts = new Object(yargs(process.argv.slice(2)).exitProcess(false).parse()
 global.prefix = new RegExp('^[' + (opts['prefix'] || '‎xzXZ/i!#$%+£¢€¥^°=¶∆×÷π√✓©®:;?&.\\-.@').replace(/[|\\{}()[\]^$+*?.\-\^]/g, '\\$&') + ']')
 
 // ═══════════════════════════════════════════════════
+// ✅ ASEGURAR QUE EXISTAN DIRECTORIOS CRÍTICOS
+// ═══════════════════════════════════════════════════
+const directoriosCriticos = ['./storage/database', './sessions', './tmp']
+directoriosCriticos.forEach(dir => {
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true })
+    console.log(chalk.green(`✓ Directorio creado: ${dir}`))
+  }
+})
+
+// ═══════════════════════════════════════════════════
 // BASE DE DATOS
 // ═══════════════════════════════════════════════════
-global.db = new Low(new JSONFile('./database/database.json'))
+global.db = new Low(new JSONFile('./storage/database/database.json'))
 
 global.DATABASE = global.db
 global.loadDatabase = async function loadDatabase() {
