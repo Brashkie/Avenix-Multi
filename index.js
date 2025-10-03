@@ -18,9 +18,8 @@
 import { join, dirname } from 'path'
 import { createRequire } from 'module'
 import { fileURLToPath } from 'url'
-import cluster from 'cluster'
-const { setupMaster, fork } = cluster
-import { watchFile, unwatchFile, existsSync, writeFileSync, mkdirSync } from 'fs'
+import { setupMaster, fork } from 'cluster'
+import { watchFile, unwatchFile, existsSync, writeFileSync } from 'fs'
 import cfonts from 'cfonts'
 import { createInterface } from 'readline'
 import yargs from 'yargs'
@@ -32,15 +31,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const require = createRequire(__dirname)
 const { name, author, version } = require(join(__dirname, './package.json'))
 const rl = createInterface(process.stdin, process.stdout)
-
-// Crear directorios necesarios
-const directoriosNecesarios = ['./storage/database', './tmp', './sessions']
-directoriosNecesarios.forEach(dir => {
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true })
-    console.log(chalk.green(`✓ Directorio creado: ${dir}`))
-  }
-})
 
 // ═══════════════════════════════════════════════════
 // ANIMACIONES PERSONALIZADAS AVENIX
