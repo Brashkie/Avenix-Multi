@@ -15,10 +15,11 @@
  * ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
  */
 //index.js
+import cluster from 'cluster'
+const { setupPrimary, fork } = cluster
 import { join, dirname } from 'path'
 import { createRequire } from 'module'
 import { fileURLToPath } from 'url'
-import { setupMaster, fork } from 'cluster'
 import { watchFile, unwatchFile, existsSync, writeFileSync } from 'fs'
 import cfonts from 'cfonts'
 import { createInterface } from 'readline'
@@ -198,35 +199,33 @@ let isRunning = false
 function start(file) {
   if (isRunning) return
   isRunning = true
-  
-  let args = [join(__dirname, 'kernel', file), ...process.argv.slice(2)]
-  
-  setupMaster({
+
+  const args = [join(__dirname, 'kernel', file), ...process.argv.slice(2)]
+
+  setupPrimary({
     exec: args[0],
     args: args.slice(1)
   })
-  
-  let p = fork()
-  
-  p.on('message', data => {
+
+  const worker = fork()
+
+  worker.on('message', data => {
     switch (data) {
       case 'reset':
-        p.process.kill()
+        worker.process.kill()
         isRunning = false
         start(file)
         break
       case 'uptime':
-        p.send(process.uptime())
+        worker.send(process.uptime())
         break
     }
   })
-  
-  p.on('exit', (_, code) => {
+
+  worker.on('exit', (_, code) => {
     isRunning = false
     console.error(chalk.red('⚠️ Error:\n'), code)
-    
     if (code === 0) return
-    
     watchFile(args[0], () => {
       unwatchFile(args[0])
       start(file)
