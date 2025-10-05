@@ -15,10 +15,10 @@
  * ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
  */
 //index.js
+import cluster from 'cluster'
 import { join, dirname } from 'path'
 import { createRequire } from 'module'
 import { fileURLToPath } from 'url'
-import { setupMaster, fork } from 'cluster'
 import { watchFile, unwatchFile, existsSync, writeFileSync } from 'fs'
 import cfonts from 'cfonts'
 import { createInterface } from 'readline'
@@ -106,37 +106,41 @@ async function bannerInfo() {
   console.log(chalk.cyan.bold('╚══════════════════════════════════════════╝\n'))
 }
 
+// ═══════════════════════════════════════════════════
+// INICIO COMPLETO (incluye el ASCII art que mencionaste)
+// ═══════════════════════════════════════════════════
+
 async function inicioAvenix() {
   console.clear()
-  
+
   // Logo animado
   await logoAvenix()
-  
+
   console.clear()
   console.log(chalk.cyan.bold('\n╔═════════════════════════════════════════════════╗'))
   console.log(chalk.cyan.bold('║       𒁈 SISTEMA AVENIX-MULTI ACTIVO 𒁈        ║'))
   console.log(chalk.cyan.bold('╚═════════════════════════════════════════════════╝\n'))
-  
+
   await textoAnimado('⟡ Estableciendo conexión con servicios...', 38, true)
   await new Promise(res => setTimeout(res, 280))
-  
+
   await barraAvenix()
   await new Promise(res => setTimeout(res, 380))
-  
+
   console.log(chalk.magenta.bold('\n▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬'))
   await textoAnimado('◆ Bot Multi-Propósito Iniciado', 42, false)
   console.log(chalk.magenta.bold('▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n'))
-  
+
   await bannerInfo()
-  
+
   await textoAnimado('⟡ Todos los sistemas operativos', 33, true)
-  
+
   console.log(chalk.green.bold('\n✓ Avenix-Multi en línea'))
   console.log(chalk.yellow('⟡ Listo para recibir conexiones...\n'))
-  
+
   await new Promise(res => setTimeout(res, 450))
-  
-  // ASCII Art Avenix
+
+  // ASCII Art Avenix (completo, tal como lo pediste)
   console.log(chalk.cyan(`
     ░█████╗░██╗░░░██╗███████╗███╗░░██╗██╗██╗░░██╗
     ██╔══██╗██║░░░██║██╔════╝████╗░██║██║╚██╗██╔╝
@@ -146,7 +150,7 @@ async function inicioAvenix() {
     ╚═╝░░╚═╝░░░╚═╝░░░╚══════╝╚═╝░░╚══╝╚═╝╚═╝░░╚═╝
            M U L T I - D E V I C E  B O T
   `))
-  
+
   console.log(chalk.magenta(`
     ██╗  ██╗███████╗██████╗ ███████╗██╗███╗   ██╗
     ██║  ██║██╔════╝██╔══██╗██╔════╝██║████╗  ██║
@@ -155,7 +159,7 @@ async function inicioAvenix() {
     ██║  ██║███████╗██║     ███████╗██║██║ ╚████║
     ╚═╝  ╚═╝╚══════╝╚═╝     ╚══════╝╚═╝╚═╝  ╚═══╝
   `))
-  
+
   console.log(chalk.yellow(`
     ██████╗ ██████╗  █████╗ ███████╗██╗  ██╗██╗  ██╗██╗███████╗
     ██╔══██╗██╔══██╗██╔══██╗██╔════╝██║  ██║██║ ██╔╝██║██╔════╝
@@ -164,7 +168,7 @@ async function inicioAvenix() {
     ██████╔╝██║  ██║██║  ██║███████║██║  ██║██║  ██╗██║███████╗
     ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝
   `))
-  
+
   console.log(chalk.gray('══════════════════════════════════════════════════'))
   await textoAnimado('𒁈 Desarrollador Principal: Hepein Oficial', 48, false)
   await textoAnimado('𒁈 Colaborador: Brashkie', 48, false)
@@ -191,6 +195,7 @@ function msgRandom() {
 
 // ═══════════════════════════════════════════════════
 // FUNCIÓN PRINCIPAL - START
+// - Soporta setupPrimary (Node 22+) o setupMaster (Node 18/20)
 // ═══════════════════════════════════════════════════
 
 let isRunning = false
@@ -198,35 +203,50 @@ let isRunning = false
 function start(file) {
   if (isRunning) return
   isRunning = true
-  
-  let args = [join(__dirname, 'kernel', file), ...process.argv.slice(2)]
-  
-  setupMaster({
-    exec: args[0],
-    args: args.slice(1)
-  })
-  
-  let p = fork()
-  
-  p.on('message', data => {
+
+  const args = [join(__dirname, 'kernel', file), ...process.argv.slice(2)]
+
+  // Elegir la función de setup disponible
+  const setupFn = typeof cluster.setupPrimary === 'function'
+    ? cluster.setupPrimary.bind(cluster)
+    : (typeof cluster.setupMaster === 'function' ? cluster.setupMaster.bind(cluster) : null)
+
+  if (!setupFn) {
+    console.warn(chalk.yellow('⚠️  Atención: cluster.setupPrimary/master no disponible en este entorno. Intentando fork clásico.'))
+  } else {
+    setupFn({
+      exec: args[0],
+      args: args.slice(1)
+    })
+  }
+
+  // fork del worker (cluster.fork normalmente disponible)
+  let worker
+  try {
+    worker = cluster.fork()
+  } catch (e) {
+    console.error(chalk.red('❌ Error al forkear worker con cluster.fork():'), e)
+    isRunning = false
+    return
+  }
+
+  worker.on('message', data => {
     switch (data) {
       case 'reset':
-        p.process.kill()
+        try { worker.process.kill() } catch {}
         isRunning = false
         start(file)
         break
       case 'uptime':
-        p.send(process.uptime())
+        worker.send(process.uptime())
         break
     }
   })
-  
-  p.on('exit', (_, code) => {
+
+  worker.on('exit', (_, code) => {
     isRunning = false
-    console.error(chalk.red('⚠️ Error:\n'), code)
-    
+    console.error(chalk.red('⚠️ Worker finalizado con código:'), code)
     if (code === 0) return
-    
     watchFile(args[0], () => {
       unwatchFile(args[0])
       start(file)
@@ -235,7 +255,7 @@ function start(file) {
 }
 
 // ═══════════════════════════════════════════════════
-// MANEJO DE ERRORES Y ADVERTENCIAS
+// MANEJO DE ERRORES Y SEÑALES
 // ═══════════════════════════════════════════════════
 
 process.on('warning', warning => {
@@ -245,7 +265,7 @@ process.on('warning', warning => {
   }
 })
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason) => {
   console.log(chalk.red('⚠️ Promesa rechazada sin manejar:'))
   console.log(reason)
 })
@@ -267,7 +287,7 @@ process.on('SIGINT', () => {
 const archivoControl = './.avenix-started'
 
 if (!existsSync(archivoControl)) {
-  // Primera vez ejecutando
+  // Primera vez ejecutando (mostramos animaciones completas)
   await inicioAvenix()
   writeFileSync(archivoControl, `𒁈 AVENIX-MULTI v${version}\nIniciado: ${new Date().toLocaleString()}\nCreado por: ${author.name}`)
 } else {
@@ -276,8 +296,7 @@ if (!existsSync(archivoControl)) {
 }
 
 // ═══════════════════════════════════════════════════
-// INICIAR EL BOT - Archivo start.js en la raíz
+// INICIAR EL BOT (archivo kernel/start.js)
 // ═══════════════════════════════════════════════════
 
 start('start.js')
-
