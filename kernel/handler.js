@@ -254,7 +254,7 @@ export async function handler(chatUpdate) {
         antiTiktok: 'antiTiktok' in chat ? chat.antiTiktok : false,
         antiYoutube: 'antiYoutube' in chat ? chat.antiYoutube : false,
         
-        // Funciones especiales (BLACK-CLOVER)
+        // Funciones especiales (Hepein Oficial)
         antiLag: 'antiLag' in chat ? chat.antiLag : false,
         per: Array.isArray(chat.per) ? chat.per : [],
         birthdayAllowed: 'birthdayAllowed' in chat ? chat.birthdayAllowed : false,
