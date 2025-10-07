@@ -1,6 +1,6 @@
 {
   "name": "avenix-multi",
-  "version": "6.0.0",
+  "version": "6.5.0",
   "description": "𒁈 Avenix-Multi - Bot Multi-Propósito para WhatsApp creado por Hepein Oficial",
   "main": "index.js",
   "type": "module",
