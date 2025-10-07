@@ -1,7 +1,7 @@
 /**
  * ╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
  * ┃                         𒁈 AVENIX-MULTI V6.0.0 𒁈                          ┃
- * ┃                 HANDLER MEJORADO CON RPG + BLACK-CLOVER                    ┃
+ * ┃                 HANDLER MEJORADO CON RPG + HepeinBot-PRO                   ┃
  * ┃                       Creado por: Hepein Oficial                           ┃
  * ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
  */
@@ -72,7 +72,7 @@ export async function handler(chatUpdate) {
 
     try {
       // ═════════════════════════════════════════════════════════════════════════
-      // │                    SISTEMA ANTI-LAG (BLACK-CLOVER)                    │
+      // │                    SISTEMA ANTI-LAG (HEPEIN OFICIAL)                  │
       // ═════════════════════════════════════════════════════════════════════════
       
       const mainBot = global?.conn?.user?.jid
@@ -92,7 +92,7 @@ export async function handler(chatUpdate) {
       }
       
       // ═════════════════════════════════════════════════════════════════════════
-      // │                 SUBBOTS PREMIUM (BLACK-CLOVER)                        │
+      // │                 SUBBOTS PREMIUM (HEPEIN OFICIAL)                      │
       // ═════════════════════════════════════════════════════════════════════════
       
       const sendNum = m?.sender?.replace(/[^0-9]/g, '')
