@@ -1,8 +1,9 @@
 /**
  * ╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
- * ┃                         𒁈 AVENIX-MULTI V6.0.0 𒁈                          ┃
+ * ┃                         𒁈 AVENIX-MULTI V6.1.0 𒁈                          ┃
  * ┃                 HANDLER MEJORADO CON RPG + HepeinBot-PRO                   ┃
  * ┃                       Creado por: Hepein Oficial                           ┃
+ * ┃                    Modificado con: money + isMods + isHelpers              ┃
  * ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
  */
 
@@ -68,7 +69,7 @@ export async function handler(chatUpdate) {
     
     global.mconn = m
     m.exp = 0
-    m.monedas = false
+    m.money = false
 
     try {
       // ═════════════════════════════════════════════════════════════════════════
@@ -122,7 +123,7 @@ export async function handler(chatUpdate) {
       Object.assign(user, {
         // Sistema económico base
         exp: isNumber(user.exp) ? user.exp : 0,
-        monedas: isNumber(user.monedas) ? user.monedas : 10,
+        money: isNumber(user.money) ? user.money : 10,
         diamond: isNumber(user.diamond) ? user.diamond : 3,
         joincount: isNumber(user.joincount) ? user.joincount : 1,
         
@@ -303,12 +304,25 @@ export async function handler(chatUpdate) {
     if (typeof m.text !== "string") m.text = ""
     globalThis.setting = global.db.data.settings[this.user.jid]
 
+    // ═════════════════════════════════════════════════════════════════════════
+    // │               SISTEMA DE PERMISOS Y ROLES (MEJORADO)                  │
+    // ═════════════════════════════════════════════════════════════════════════
+    
     // Sistema de detección de LID mejorado
     const detectwhat = m.sender.includes('@lid') ? '@lid' : '@s.whatsapp.net'
+    
+    // Owner y ROwner
     const isROwner = [...global.owner.map(([number]) => number)].map(v => v.replace(/\D/g, "") + detectwhat).includes(m.sender)
     const isOwner = isROwner || m.fromMe
+    
+    // Premium
     const isPrems = isROwner || global.db.data.users[m.sender].premiumTime > 0
-    const isMods = isOwner || global.mods.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)
+    
+    // Moderadores (Mods) - AGREGADO
+    const isMods = isOwner || (global.mods || []).map(v => v.replace(/[^0-9]/g, '') + detectwhat).includes(m.sender)
+    
+    // Helpers (Ayudantes) - NUEVO ROL
+    const isHelpers = isMods || (global.helpers || []).map(v => v.replace(/[^0-9]/g, '') + detectwhat).includes(m.sender)
 
     // Sistema de cola de mensajes
     if (opts["queque"] && m.text && !isMods) {
@@ -405,7 +419,9 @@ export async function handler(chatUpdate) {
             isRAdmin, 
             isAdmin, 
             isBotAdmin, 
-            isPrems, 
+            isPrems,
+            isMods,
+            isHelpers,
             chatUpdate, 
             __dirname: ___dirname, 
             __filename 
@@ -466,6 +482,10 @@ export async function handler(chatUpdate) {
         
         if (adminMode && !isOwner && !isROwner && m.isGroup && !isAdmin && mini) return
 
+        // ═════════════════════════════════════════════════════════════════════
+        // │              VERIFICACIÓN DE PERMISOS (MEJORADO)                  │
+        // ═════════════════════════════════════════════════════════════════════
+        
         if (plugin.rowner && plugin.owner && !(isROwner || isOwner)) { 
           fail('owner', m, this)
           continue 
@@ -480,6 +500,10 @@ export async function handler(chatUpdate) {
         }
         if (plugin.mods && !isMods) { 
           fail('mods', m, this)
+          continue 
+        }
+        if (plugin.helper && !isHelpers) { 
+          fail('helper', m, this)
           continue 
         }
         if (plugin.premium && !isPrems) { 
@@ -516,8 +540,9 @@ export async function handler(chatUpdate) {
         let xp = 'exp' in plugin ? parseInt(plugin.exp) : 10
         m.exp += xp
         
-        if (!isPrems && plugin.monedas && _user.monedas < plugin.monedas) {
-          this.reply(m.chat, `💰 *MONEDAS INSUFICIENTES* 𒁈\n\nNecesitas: ${plugin.monedas} monedas\nTienes: ${_user.monedas} monedas`, m)
+        // Verificación de money (antes era monedas)
+        if (!isPrems && plugin.money && _user.money < plugin.money) {
+          this.reply(m.chat, `💰 *MONEY INSUFICIENTE* 𒁈\n\nNecesitas: ${plugin.money} money\nTienes: ${_user.money} money`, m)
           continue
         }
         
@@ -530,12 +555,13 @@ export async function handler(chatUpdate) {
           match, usedPrefix, noPrefix, _args, args, command, text, 
           conn: this, participants, groupMetadata, user, bot, 
           isROwner, isOwner, isRAdmin, isAdmin, isBotAdmin, isPrems, isPremSubs,
+          isMods, isHelpers,
           chatUpdate, __dirname: ___dirname, __filename 
         }
         
         try {
           await plugin.call(this, m, extra)
-          if (!isPrems) m.monedas = m.monedas || plugin.monedas || false
+          if (!isPrems) m.money = m.money || plugin.money || false
         } catch (e) {
           m.error = e
           console.error(`Error ejecutando ${name}:`, e)
@@ -554,7 +580,7 @@ export async function handler(chatUpdate) {
               console.error(`Error en plugin.after de ${name}:`, e)
             }
           }
-          if (m.monedas) this.reply(m.chat, `💰 Gastaste ${+m.monedas} monedas`, m)
+          if (m.money) this.reply(m.chat, `💰 Gastaste ${+m.money} money`, m)
         }
         break
       }
@@ -593,7 +619,7 @@ export async function handler(chatUpdate) {
         })
       }
       utente.exp += m.exp
-      utente.monedas -= m.monedas
+      utente.money -= m.money
     }
 
     let stats = global.db.data.stats
@@ -792,7 +818,7 @@ export async function callUpdate(json) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// │                      FUNCIÓN DE MANEJO DE FALLOS                           │
+// │                      FUNCIÓN DE MANEJO DE FALLOS (MEJORADA)                │
 // ═══════════════════════════════════════════════════════════════════════════════
 
 global.dfail = (type, m, usedPrefix, command, conn) => {
@@ -802,6 +828,8 @@ global.dfail = (type, m, usedPrefix, command, conn) => {
     owner: `🔒 *SOLO PROPIETARIO* 𒁈\n\nEste comando solo puede ser usado por el *Propietario* del bot.\n\n𒁈 *Avenix-Multi*`,
     
     mods: `⚙️ *SOLO MODERADORES* 𒁈\n\nEste comando es solo para *Moderadores*.\n\n𒁈 *Avenix-Multi*`,
+    
+    helper: `🛠️ *SOLO HELPERS* 𒁈\n\nEste comando es solo para *Helpers* (Ayudantes) del bot.\n\nLos helpers pueden:\n• Ver estadísticas\n• Responder consultas\n• Usar comandos de soporte\n\nContacta al propietario para ser helper.\n\n𒁈 *Avenix-Multi*`,
     
     premium: `💎 *PREMIUM REQUERIDO* 𒁈\n\nEste comando es exclusivo para usuarios *Premium*.\n\nContacta al propietario para obtener acceso premium.\n\n𒁈 *Avenix-Multi*`,
     
@@ -816,6 +844,8 @@ global.dfail = (type, m, usedPrefix, command, conn) => {
     unreg: `📝 *REGISTRO REQUERIDO* 𒁈\n\nDebes registrarte para usar los comandos.\n\n📋 Regístrate con: *${usedPrefix || '.'}reg nombre.edad*\n📌 Ejemplo: *${usedPrefix || '.'}reg Juan.25*\n\n𒁈 *Avenix-Multi*`,
     
     restrict: `🚫 *FUNCIÓN DESHABILITADA* 𒁈\n\nEsta función fue deshabilitada por el propietario.\n\n𒁈 *Avenix-Multi*`,
+    
+    group: `📱 *SOLO GRUPOS* 𒁈\n\nEste comando solo funciona en grupos.\n\n𒁈 *Avenix-Multi*`,
     
     gconly: `📱 *SOLO GRUPOS* 𒁈\n\nEste bot está configurado solo para *Grupos*.\n\n𒁈 *Avenix-Multi*`,
     
