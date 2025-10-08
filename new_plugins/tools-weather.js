@@ -1,5 +1,5 @@
 // plugin: weather.js (clima)
-import { weather } from './lib/weather.js';
+import { weather } from '../lib/weather.js';
 
 let handler = async (m, { conn, text, command, usedPrefix }) => {
     if (!text) {
