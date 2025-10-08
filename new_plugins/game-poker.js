@@ -1,5 +1,5 @@
 // plugin: poker.js
-import { gameManager } from './lib/poker.js';
+import { gameManager } from '../lib/poker.js';
 
 let handler = async (m, { conn, text, command, usedPrefix }) => {
     const chatId = m.chat;
