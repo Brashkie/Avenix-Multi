@@ -1,5 +1,5 @@
 // En tu plugin de juego
-import { gameManager } from './lib/tictactoe.js';
+import { gameManager } from '../lib/tictactoe.js';
 
 let handler = async (m, { conn, text, command }) => {
     const chatId = m.chat;
