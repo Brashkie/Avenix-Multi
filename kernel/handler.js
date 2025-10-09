@@ -4,6 +4,7 @@
  * ┃                 HANDLER MEJORADO CON RPG + HepeinBot-PRO                   ┃
  * ┃                       Creado por: Hepein Oficial                           ┃
  * ┃                    Modificado con: money + isMods + isHelpers              ┃
+ * ┃                        ✅ VERSIÓN CORREGIDA ✅                             ┃
  * ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
  */
 
@@ -63,13 +64,19 @@ export async function handler(chatUpdate) {
   if (!m) return
   if (!global.db.data) await global.loadDatabase()
 
+  // ✅ CORRECCIÓN 1: DECLARAR VARIABLES GLOBALES DEL HANDLER
+  let groupMetadata = {}
+  let participants = []
+  let user = {}
+  let bot = {}
+
   try {
     m = smsg(this, m) || m
     if (!m) return
     
     global.mconn = m
     m.exp = 0
-    m.money = false
+    m.money = 0  // ✅ CORRECCIÓN 2: CAMBIAR DE false A 0
 
     try {
       // ═════════════════════════════════════════════════════════════════════════
@@ -117,95 +124,95 @@ export async function handler(chatUpdate) {
       // │              INICIALIZACIÓN DE USUARIO RPG COMPLETO                   │
       // ═════════════════════════════════════════════════════════════════════════
       
-      let user = global.db.data.users[m.sender]
-      if (!user || typeof user !== 'object') global.db.data.users[m.sender] = user = {}
+      let userDb = global.db.data.users[m.sender]
+      if (!userDb || typeof userDb !== 'object') global.db.data.users[m.sender] = userDb = {}
 
-      Object.assign(user, {
+      Object.assign(userDb, {
         // Sistema económico base
-        exp: isNumber(user.exp) ? user.exp : 0,
-        money: isNumber(user.money) ? user.money : 10,
-        diamond: isNumber(user.diamond) ? user.diamond : 3,
-        joincount: isNumber(user.joincount) ? user.joincount : 1,
+        exp: isNumber(userDb.exp) ? userDb.exp : 0,
+        money: isNumber(userDb.money) ? userDb.money : 10,
+        diamond: isNumber(userDb.diamond) ? userDb.diamond : 3,
+        joincount: isNumber(userDb.joincount) ? userDb.joincount : 1,
         
         // Sistema RPG - Estadísticas
-        health: isNumber(user.health) ? user.health : 100,
-        crime: isNumber(user.crime) ? user.crime : 0,
+        health: isNumber(userDb.health) ? userDb.health : 100,
+        crime: isNumber(userDb.crime) ? userDb.crime : 0,
         
         // Sistema RPG - Cooldowns
-        lastadventure: isNumber(user.lastadventure) ? user.lastadventure : 0,
-        lastclaim: isNumber(user.lastclaim) ? user.lastclaim : 0,
-        lastcofre: isNumber(user.lastcofre) ? user.lastcofre : 0,
-        lastdiamantes: isNumber(user.lastdiamantes) ? user.lastdiamantes : 0,
-        lastpago: isNumber(user.lastpago) ? user.lastpago : 0,
-        lastcode: isNumber(user.lastcode) ? user.lastcode : 0,
-        lastcodereg: isNumber(user.lastcodereg) ? user.lastcodereg : 0,
-        lastduel: isNumber(user.lastduel) ? user.lastduel : 0,
-        lastmining: isNumber(user.lastmining) ? user.lastmining : 0,
-        lastdungeon: isNumber(user.lastdungeon) ? user.lastdungeon : 0,
-        lastfishing: isNumber(user.lastfishing) ? user.lastfishing : 0,
-        lastfight: isNumber(user.lastfight) ? user.lastfight : 0,
-        lasthunt: isNumber(user.lasthunt) ? user.lasthunt : 0,
-        lastweekly: isNumber(user.lastweekly) ? user.lastweekly : 0,
-        lastmonthly: isNumber(user.lastmonthly) ? user.lastmonthly : 0,
-        lastyearly: isNumber(user.lastyearly) ? user.lastyearly : 0,
-        lastjb: isNumber(user.lastjb) ? user.lastjb : 0,
-        lastrob: isNumber(user.lastrob) ? user.lastrob : 0,
-        lastgift: isNumber(user.lastgift) ? user.lastgift : 0,
-        lastreward: isNumber(user.lastreward) ? user.lastreward : 0,
-        lastbet: isNumber(user.lastbet) ? user.lastbet : 0,
+        lastadventure: isNumber(userDb.lastadventure) ? userDb.lastadventure : 0,
+        lastclaim: isNumber(userDb.lastclaim) ? userDb.lastclaim : 0,
+        lastcofre: isNumber(userDb.lastcofre) ? userDb.lastcofre : 0,
+        lastdiamantes: isNumber(userDb.lastdiamantes) ? userDb.lastdiamantes : 0,
+        lastpago: isNumber(userDb.lastpago) ? userDb.lastpago : 0,
+        lastcode: isNumber(userDb.lastcode) ? userDb.lastcode : 0,
+        lastcodereg: isNumber(userDb.lastcodereg) ? userDb.lastcodereg : 0,
+        lastduel: isNumber(userDb.lastduel) ? userDb.lastduel : 0,
+        lastmining: isNumber(userDb.lastmining) ? userDb.lastmining : 0,
+        lastdungeon: isNumber(userDb.lastdungeon) ? userDb.lastdungeon : 0,
+        lastfishing: isNumber(userDb.lastfishing) ? userDb.lastfishing : 0,
+        lastfight: isNumber(userDb.lastfight) ? userDb.lastfight : 0,
+        lasthunt: isNumber(userDb.lasthunt) ? userDb.lasthunt : 0,
+        lastweekly: isNumber(userDb.lastweekly) ? userDb.lastweekly : 0,
+        lastmonthly: isNumber(userDb.lastmonthly) ? userDb.lastmonthly : 0,
+        lastyearly: isNumber(userDb.lastyearly) ? userDb.lastyearly : 0,
+        lastjb: isNumber(userDb.lastjb) ? userDb.lastjb : 0,
+        lastrob: isNumber(userDb.lastrob) ? userDb.lastrob : 0,
+        lastgift: isNumber(userDb.lastgift) ? userDb.lastgift : 0,
+        lastreward: isNumber(userDb.lastreward) ? userDb.lastreward : 0,
+        lastbet: isNumber(userDb.lastbet) ? userDb.lastbet : 0,
         
         // Sistema de moderación
-        muto: 'muto' in user ? user.muto : false,
-        banned: 'banned' in user ? user.banned : false,
-        bannedReason: user.bannedReason || '',
-        warn: isNumber(user.warn) ? user.warn : 0,
+        muto: 'muto' in userDb ? userDb.muto : false,
+        banned: 'banned' in userDb ? userDb.banned : false,
+        bannedReason: userDb.bannedReason || '',
+        warn: isNumber(userDb.warn) ? userDb.warn : 0,
         
         // Sistema premium
-        premium: 'premium' in user ? user.premium : false,
-        premiumTime: user.premium ? user.premiumTime || 0 : 0,
+        premium: 'premium' in userDb ? userDb.premium : false,
+        premiumTime: userDb.premium ? userDb.premiumTime || 0 : 0,
         
         // Sistema de registro
-        registered: 'registered' in user ? user.registered : false,
-        name: user.name || m.name,
-        age: isNumber(user.age) ? user.age : -1,
-        regTime: isNumber(user.regTime) ? user.regTime : -1,
+        registered: 'registered' in userDb ? userDb.registered : false,
+        name: userDb.name || m.name,
+        age: isNumber(userDb.age) ? userDb.age : -1,
+        regTime: isNumber(userDb.regTime) ? userDb.regTime : -1,
         
         // Información personal
-        genre: user.genre || '',
-        birth: user.birth || '',
-        marry: user.marry || '',
-        description: user.description || '',
+        genre: userDb.genre || '',
+        birth: userDb.birth || '',
+        marry: userDb.marry || '',
+        description: userDb.description || '',
         
         // Sistema AFK
-        afk: isNumber(user.afk) ? user.afk : -1,
-        afkReason: user.afkReason || '',
+        afk: isNumber(userDb.afk) ? userDb.afk : -1,
+        afkReason: userDb.afkReason || '',
         
         // Sistema de roles y niveles
-        role: user.role || 'Novato',
-        level: isNumber(user.level) ? user.level : 0,
-        bank: isNumber(user.bank) ? user.bank : 0,
+        role: userDb.role || 'Novato',
+        level: isNumber(userDb.level) ? userDb.level : 0,
+        bank: isNumber(userDb.bank) ? userDb.bank : 0,
         
         // Configuraciones de usuario
-        useDocument: 'useDocument' in user ? user.useDocument : false,
-        packstickers: user.packstickers || null,
+        useDocument: 'useDocument' in userDb ? userDb.useDocument : false,
+        packstickers: userDb.packstickers || null,
         
         // Sistema RPG - Items
-        pc: isNumber(user.pc) ? user.pc : 0,
-        sp: isNumber(user.sp) ? user.sp : 0,
-        spada: isNumber(user.spada) ? user.spada : 0,
-        sword: isNumber(user.sword) ? user.sword : 0,
-        legendary: isNumber(user.legendary) ? user.legendary : 0,
-        pet: isNumber(user.pet) ? user.pet : 0,
-        horse: isNumber(user.horse) ? user.horse : 0,
-        fox: isNumber(user.fox) ? user.fox : 0,
-        dog: isNumber(user.dog) ? user.dog : 0,
-        cat: isNumber(user.cat) ? user.cat : 0,
-        centaur: isNumber(user.centaur) ? user.centaur : 0,
-        phoenix: isNumber(user.phoenix) ? user.phoenix : 0,
-        dragon: isNumber(user.dragon) ? user.dragon : 0,
+        pc: isNumber(userDb.pc) ? userDb.pc : 0,
+        sp: isNumber(userDb.sp) ? userDb.sp : 0,
+        spada: isNumber(userDb.spada) ? userDb.spada : 0,
+        sword: isNumber(userDb.sword) ? userDb.sword : 0,
+        legendary: isNumber(userDb.legendary) ? userDb.legendary : 0,
+        pet: isNumber(userDb.pet) ? userDb.pet : 0,
+        horse: isNumber(userDb.horse) ? userDb.horse : 0,
+        fox: isNumber(userDb.fox) ? userDb.fox : 0,
+        dog: isNumber(userDb.dog) ? userDb.dog : 0,
+        cat: isNumber(userDb.cat) ? userDb.cat : 0,
+        centaur: isNumber(userDb.centaur) ? userDb.centaur : 0,
+        phoenix: isNumber(userDb.phoenix) ? userDb.phoenix : 0,
+        dragon: isNumber(userDb.dragon) ? userDb.dragon : 0,
         
         // Otros
-        autolevelup: 'autolevelup' in user ? user.autolevelup : true
+        autolevelup: 'autolevelup' in userDb ? userDb.autolevelup : true
       })
 
       // ═════════════════════════════════════════════════════════════════════════
@@ -353,12 +360,13 @@ export async function handler(chatUpdate) {
     const senderJid = m.sender
     const botJid = this.user.jid
 
+    // ✅ CORRECCIÓN 3: QUITAR const (ya están declaradas arriba)
     // Obtener metadata del grupo
-    const groupMetadata = m.isGroup ? ((this.chats[m.chat] || {}).metadata || await this.groupMetadata(m.chat).catch(() => null)) : {}
-    const participants = m.isGroup && groupMetadata ? groupMetadata.participants || [] : []
+    groupMetadata = m.isGroup ? ((this.chats[m.chat] || {}).metadata || await this.groupMetadata(m.chat).catch(() => null)) : {}
+    participants = m.isGroup && groupMetadata ? groupMetadata.participants || [] : []
 
-    const user = participants.find(p => [p?.id, p?.jid].includes(senderLid) || [p?.id, p?.jid].includes(senderJid)) || {}
-    const bot = participants.find(p => [p?.id, p?.jid].includes(botLid) || [p?.id, p?.jid].includes(botJid)) || {}
+    user = participants.find(p => [p?.id, p?.jid].includes(senderLid) || [p?.id, p?.jid].includes(senderJid)) || {}
+    bot = participants.find(p => [p?.id, p?.jid].includes(botLid) || [p?.id, p?.jid].includes(botJid)) || {}
 
     const isRAdmin = user.admin === 'superadmin'
     const isAdmin = isRAdmin || user.admin === 'admin'
@@ -467,13 +475,13 @@ export async function handler(chatUpdate) {
 
         m.plugin = name
         let chat = global.db.data.chats[m.chat]
-        let user = global.db.data.users[m.sender]
+        let userPlugin = global.db.data.users[m.sender]
         
         if (!['grupo-unbanchat.js', 'owner-exec.js', 'owner-exec2.js'].includes(name) && 
             chat?.isBanned && !isROwner) return
         
-        if (m.text && user.banned && !isROwner) { 
-          m.reply(`⚠️ *USUARIO BANEADO* 𒁈\n\nEstás baneado, no puedes usar comandos.\n\n${user.bannedReason ? `📋 *Motivo:* ${user.bannedReason}` : '📋 *Motivo:* Sin especificar'}\n\n💡 Si crees que esto es un error, contacta al propietario.`)
+        if (m.text && userPlugin.banned && !isROwner) { 
+          m.reply(`⚠️ *USUARIO BANEADO* 𒁈\n\nEstás baneado, no puedes usar comandos.\n\n${userPlugin.bannedReason ? `📋 *Motivo:* ${userPlugin.bannedReason}` : '📋 *Motivo:* Sin especificar'}\n\n💡 Si crees que esto es un error, contacta al propietario.`)
           return
         }
 
@@ -561,7 +569,7 @@ export async function handler(chatUpdate) {
         
         try {
           await plugin.call(this, m, extra)
-          if (!isPrems) m.money = m.money || plugin.money || false
+          if (!isPrems) m.money = m.money || plugin.money || 0
         } catch (e) {
           m.error = e
           console.error(`Error ejecutando ${name}:`, e)
@@ -580,7 +588,9 @@ export async function handler(chatUpdate) {
               console.error(`Error en plugin.after de ${name}:`, e)
             }
           }
-          if (m.money) this.reply(m.chat, `💰 Gastaste ${+m.money} money`, m)
+          if (m.money && m.money > 0) {
+            this.reply(m.chat, `💰 Gastaste ${+m.money} money`, m)
+          }
         }
         break
       }
@@ -608,7 +618,7 @@ export async function handler(chatUpdate) {
 
     if (m) {
       let utente = global.db.data.users[m.sender]
-      if (utente.muto) {
+      if (utente && utente.muto) {
         await this.sendMessage(m.chat, { 
           delete: { 
             remoteJid: m.chat, 
@@ -618,8 +628,10 @@ export async function handler(chatUpdate) {
           }
         })
       }
-      utente.exp += m.exp
-      utente.money -= m.money
+      if (utente) {
+        utente.exp += m.exp
+        utente.money -= m.money * 1
+      }
     }
 
     let stats = global.db.data.stats
