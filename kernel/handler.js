@@ -640,7 +640,7 @@ export async function handler(chatUpdate) {
 
     try { 
       if (!opts['noprint']) {
-        const { default: print } = await import('./lib/print.js')
+        const { default: print } = await import('../lib/print.js')
         await print(m, this)
       }
     } catch (e) { 
