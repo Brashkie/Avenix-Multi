@@ -36,42 +36,21 @@ global.mods = [
 ]
 
 // ═════════════════════ NIVEL 4: ASISTENCIA ═════════════════════════
-global.helpers = [
-  // Helpers/Ayudantes (soporte a usuarios)
-  // Ejemplo: '51666666666'
-]
+global.helpers = []
 
 // ═════════════════════ NIVEL 5: COMUNIDAD ═════════════════════════
-global.contributors = [
-  // Contributors (han contribuido al proyecto)
-  // Ejemplo: '51555555555'
-]
+global.contributors = []
 
-global.betaTesters = [
-  // Beta Testers (prueban nuevas funciones)
-  // Ejemplo: '51444444444'
-]
+global.betaTesters = []
 
-global.donators = [
-  // Donadores (apoyan económicamente)
-  // Ejemplo: '51333333333'
-]
+global.donators = []
 
-global.partners = [
-  // Partners oficiales (colaboraciones)
-  // Ejemplo: '51222222222'
-]
+global.partners = []
 
-global.influencers = [
-  // Influencers con badge verificado
-  // Ejemplo: '51111111111'
-]
+global.influencers = []
 
 // ═════════════════════ NIVEL 6: PREMIUM ═════════════════════════
-global.prems = [
-  // Usuarios premium (acceso a comandos premium)
-  // Ejemplo: '51000000000'
-]
+global.prems = []
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // │                           CONFIGURACIÓN DE CONEXIÓN                         │
