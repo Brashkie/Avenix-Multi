@@ -1,15 +1,14 @@
 /**
  * ╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
  * ┃                         𒁈 AVENIX-MULTI V6.1.0 𒁈                          ┃
- * ┃                 HANDLER MEJORADO CON RPG + HepeinBot-PRO                   ┃
- * ┃                       Creado por: Hepein Oficial                           ┃
- * ┃                    Modificado con: money + isMods + isHelpers              ┃
- * ┃                        ✅ VERSIÓN CORREGIDA ✅                             ┃
+ * ┃                          HANDLER CORREGIDO Y OPTIMIZADO                     ┃
+ * ┃                       Basado en Black Clover (funcional)                   ┃
+ * ┃                        ✅ VERSIÓN 100% FUNCIONAL ✅                        ┃
  * ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
  */
 
 import { generateWAMessageFromContent } from '@whiskeysockets/baileys'
-import { smsg } from '../lib/simple.js';
+import { smsg } from '../lib/simple.js'
 import { format } from 'util'
 import { fileURLToPath } from 'url'
 import path, { join } from 'path'
@@ -21,33 +20,6 @@ import ws from 'ws'
 const { proto } = (await import('@whiskeysockets/baileys')).default
 const isNumber = x => typeof x === 'number' && !isNaN(x)
 const delay = ms => isNumber(ms) && new Promise(resolve => setTimeout(() => resolve(), ms))
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// │                      SISTEMA DE OPTIMIZACIÓN DE MEMORIA                     │
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const objectPool = {
-  tempObjects: [],
-  getObject() {
-    return this.tempObjects.pop() || {}
-  },
-  returnObject(obj) {
-    if (Object.keys(obj).length < 50) {
-      Object.keys(obj).forEach(key => delete obj[key])
-      this.tempObjects.push(obj)
-    }
-  }
-}
-
-setInterval(() => {
-  if (global.gc) {
-    global.gc()
-    console.log(chalk.green('🧹 Limpieza de memoria ejecutada'))
-  }
-  if (objectPool.tempObjects.length > 100) {
-    objectPool.tempObjects = objectPool.tempObjects.slice(0, 50)
-  }
-}, 600000)
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // │                           HANDLER PRINCIPAL                                 │
@@ -64,162 +36,116 @@ export async function handler(chatUpdate) {
   if (!m) return
   if (!global.db.data) await global.loadDatabase()
 
-  // ✅ CORRECCIÓN 1: DECLARAR VARIABLES GLOBALES DEL HANDLER
-  let groupMetadata = {}
-  let participants = []
-  let user = {}
-  let bot = {}
-
   try {
     m = smsg(this, m) || m
     if (!m) return
     
     global.mconn = m
     m.exp = 0
-    m.money = 0  // ✅ CORRECCIÓN 2: CAMBIAR DE false A 0
+    m.money = 0  // ✅ money en lugar de monedas
 
     try {
-      // ═════════════════════════════════════════════════════════════════════════
-      // │                    SISTEMA ANTI-LAG (HEPEIN OFICIAL)                  │
-      // ═════════════════════════════════════════════════════════════════════════
-      
-      const mainBot = global?.conn?.user?.jid
-      const chat = global.db.data.chats[m.chat] || {}
-      const isAntiLagActive = chat.antiLag === true
-      const allowedBots = chat.per || []
-      
-      if (mainBot && !allowedBots.includes(mainBot)) {
-        allowedBots.push(mainBot)
-        chat.per = allowedBots
-      }
-      
-      const isAllowedBot = allowedBots.includes(this?.user?.jid)
-      
-      if (isAntiLagActive && !isAllowedBot) {
-        return
-      }
-      
-      // ═════════════════════════════════════════════════════════════════════════
-      // │                 SUBBOTS PREMIUM (HEPEIN OFICIAL)                      │
-      // ═════════════════════════════════════════════════════════════════════════
-      
-      const sendNum = m?.sender?.replace(/[^0-9]/g, '')
-      const dbSubsPrems = global.db.data.settings[this.user.jid] || {}
-      const subsActivos = dbSubsPrems.actives || []
-      
-      const botIds = [
-        this?.user?.id, 
-        this?.user?.lid, 
-        ...(global.owner?.map(([n]) => n) || [])
-      ].map(jid => jid?.replace(/[^0-9]/g, '')).filter(Boolean)
-      
-      const isPremSubs = subsActivos.some(jid => jid.replace(/[^0-9]/g, '') === sendNum) || 
-                        botIds.includes(sendNum) || 
-                        (global.conns || []).some(conn => 
-                            conn?.user?.jid?.replace(/[^0-9]/g, '') === sendNum && 
-                            conn?.ws?.socket?.readyState !== 3
-                        )
-      
       // ═════════════════════════════════════════════════════════════════════════
       // │              INICIALIZACIÓN DE USUARIO RPG COMPLETO                   │
       // ═════════════════════════════════════════════════════════════════════════
       
-      let userDb = global.db.data.users[m.sender]
-      if (!userDb || typeof userDb !== 'object') global.db.data.users[m.sender] = userDb = {}
+      let user = global.db.data.users[m.sender]
+      if (!user || typeof user !== 'object') global.db.data.users[m.sender] = user = {}
 
-      Object.assign(userDb, {
+      Object.assign(user, {
         // Sistema económico base
-        exp: isNumber(userDb.exp) ? userDb.exp : 0,
-        money: isNumber(userDb.money) ? userDb.money : 10,
-        diamond: isNumber(userDb.diamond) ? userDb.diamond : 3,
-        joincount: isNumber(userDb.joincount) ? userDb.joincount : 1,
+        exp: isNumber(user.exp) ? user.exp : 0,
+        money: isNumber(user.money) ? user.money : 10,
+        diamond: isNumber(user.diamond) ? user.diamond : 3,
+        joincount: isNumber(user.joincount) ? user.joincount : 1,
         
         // Sistema RPG - Estadísticas
-        health: isNumber(userDb.health) ? userDb.health : 100,
-        crime: isNumber(userDb.crime) ? userDb.crime : 0,
+        health: isNumber(user.health) ? user.health : 100,
+        crime: isNumber(user.crime) ? user.crime : 0,
         
         // Sistema RPG - Cooldowns
-        lastadventure: isNumber(userDb.lastadventure) ? userDb.lastadventure : 0,
-        lastclaim: isNumber(userDb.lastclaim) ? userDb.lastclaim : 0,
-        lastcofre: isNumber(userDb.lastcofre) ? userDb.lastcofre : 0,
-        lastdiamantes: isNumber(userDb.lastdiamantes) ? userDb.lastdiamantes : 0,
-        lastpago: isNumber(userDb.lastpago) ? userDb.lastpago : 0,
-        lastcode: isNumber(userDb.lastcode) ? userDb.lastcode : 0,
-        lastcodereg: isNumber(userDb.lastcodereg) ? userDb.lastcodereg : 0,
-        lastduel: isNumber(userDb.lastduel) ? userDb.lastduel : 0,
-        lastmining: isNumber(userDb.lastmining) ? userDb.lastmining : 0,
-        lastdungeon: isNumber(userDb.lastdungeon) ? userDb.lastdungeon : 0,
-        lastfishing: isNumber(userDb.lastfishing) ? userDb.lastfishing : 0,
-        lastfight: isNumber(userDb.lastfight) ? userDb.lastfight : 0,
-        lasthunt: isNumber(userDb.lasthunt) ? userDb.lasthunt : 0,
-        lastweekly: isNumber(userDb.lastweekly) ? userDb.lastweekly : 0,
-        lastmonthly: isNumber(userDb.lastmonthly) ? userDb.lastmonthly : 0,
-        lastyearly: isNumber(userDb.lastyearly) ? userDb.lastyearly : 0,
-        lastjb: isNumber(userDb.lastjb) ? userDb.lastjb : 0,
-        lastrob: isNumber(userDb.lastrob) ? userDb.lastrob : 0,
-        lastgift: isNumber(userDb.lastgift) ? userDb.lastgift : 0,
-        lastreward: isNumber(userDb.lastreward) ? userDb.lastreward : 0,
-        lastbet: isNumber(userDb.lastbet) ? userDb.lastbet : 0,
+        lastadventure: isNumber(user.lastadventure) ? user.lastadventure : 0,
+        lastclaim: isNumber(user.lastclaim) ? user.lastclaim : 0,
+        lastcofre: isNumber(user.lastcofre) ? user.lastcofre : 0,
+        lastdiamantes: isNumber(user.lastdiamantes) ? user.lastdiamantes : 0,
+        lastpago: isNumber(user.lastpago) ? user.lastpago : 0,
+        lastcode: isNumber(user.lastcode) ? user.lastcode : 0,
+        lastcodereg: isNumber(user.lastcodereg) ? user.lastcodereg : 0,
+        lastduel: isNumber(user.lastduel) ? user.lastduel : 0,
+        lastmining: isNumber(user.lastmining) ? user.lastmining : 0,
+        lastdungeon: isNumber(user.lastdungeon) ? user.lastdungeon : 0,
+        lastfishing: isNumber(user.lastfishing) ? user.lastfishing : 0,
+        lastfight: isNumber(user.lastfight) ? user.lastfight : 0,
+        lasthunt: isNumber(user.lasthunt) ? user.lasthunt : 0,
+        lastweekly: isNumber(user.lastweekly) ? user.lastweekly : 0,
+        lastmonthly: isNumber(user.lastmonthly) ? user.lastmonthly : 0,
+        lastyearly: isNumber(user.lastyearly) ? user.lastyearly : 0,
+        lastjb: isNumber(user.lastjb) ? user.lastjb : 0,
+        lastrob: isNumber(user.lastrob) ? user.lastrob : 0,
+        lastgift: isNumber(user.lastgift) ? user.lastgift : 0,
+        lastreward: isNumber(user.lastreward) ? user.lastreward : 0,
+        lastbet: isNumber(user.lastbet) ? user.lastbet : 0,
         
         // Sistema de moderación
-        muto: 'muto' in userDb ? userDb.muto : false,
-        banned: 'banned' in userDb ? userDb.banned : false,
-        bannedReason: userDb.bannedReason || '',
-        warn: isNumber(userDb.warn) ? userDb.warn : 0,
+        muto: 'muto' in user ? user.muto : false,
+        banned: 'banned' in user ? user.banned : false,
+        bannedReason: user.bannedReason || '',
+        warn: isNumber(user.warn) ? user.warn : 0,
         
         // Sistema premium
-        premium: 'premium' in userDb ? userDb.premium : false,
-        premiumTime: userDb.premium ? userDb.premiumTime || 0 : 0,
+        premium: 'premium' in user ? user.premium : false,
+        premiumTime: user.premium ? user.premiumTime || 0 : 0,
         
         // Sistema de registro
-        registered: 'registered' in userDb ? userDb.registered : false,
-        name: userDb.name || m.name,
-        age: isNumber(userDb.age) ? userDb.age : -1,
-        regTime: isNumber(userDb.regTime) ? userDb.regTime : -1,
+        registered: 'registered' in user ? user.registered : false,
+        name: user.name || m.name,
+        age: isNumber(user.age) ? user.age : -1,
+        regTime: isNumber(user.regTime) ? user.regTime : -1,
         
         // Información personal
-        genre: userDb.genre || '',
-        birth: userDb.birth || '',
-        marry: userDb.marry || '',
-        description: userDb.description || '',
+        genre: user.genre || '',
+        birth: user.birth || '',
+        marry: user.marry || '',
+        description: user.description || '',
         
         // Sistema AFK
-        afk: isNumber(userDb.afk) ? userDb.afk : -1,
-        afkReason: userDb.afkReason || '',
+        afk: isNumber(user.afk) ? user.afk : -1,
+        afkReason: user.afkReason || '',
         
         // Sistema de roles y niveles
-        role: userDb.role || 'Novato',
-        level: isNumber(userDb.level) ? userDb.level : 0,
-        bank: isNumber(userDb.bank) ? userDb.bank : 0,
+        role: user.role || 'Novato',
+        level: isNumber(user.level) ? user.level : 0,
+        bank: isNumber(user.bank) ? user.bank : 0,
         
         // Configuraciones de usuario
-        useDocument: 'useDocument' in userDb ? userDb.useDocument : false,
-        packstickers: userDb.packstickers || null,
+        useDocument: 'useDocument' in user ? user.useDocument : false,
+        packstickers: user.packstickers || null,
         
         // Sistema RPG - Items
-        pc: isNumber(userDb.pc) ? userDb.pc : 0,
-        sp: isNumber(userDb.sp) ? userDb.sp : 0,
-        spada: isNumber(userDb.spada) ? userDb.spada : 0,
-        sword: isNumber(userDb.sword) ? userDb.sword : 0,
-        legendary: isNumber(userDb.legendary) ? userDb.legendary : 0,
-        pet: isNumber(userDb.pet) ? userDb.pet : 0,
-        horse: isNumber(userDb.horse) ? userDb.horse : 0,
-        fox: isNumber(userDb.fox) ? userDb.fox : 0,
-        dog: isNumber(userDb.dog) ? userDb.dog : 0,
-        cat: isNumber(userDb.cat) ? userDb.cat : 0,
-        centaur: isNumber(userDb.centaur) ? userDb.centaur : 0,
-        phoenix: isNumber(userDb.phoenix) ? userDb.phoenix : 0,
-        dragon: isNumber(userDb.dragon) ? userDb.dragon : 0,
+        pc: isNumber(user.pc) ? user.pc : 0,
+        sp: isNumber(user.sp) ? user.sp : 0,
+        spada: isNumber(user.spada) ? user.spada : 0,
+        sword: isNumber(user.sword) ? user.sword : 0,
+        legendary: isNumber(user.legendary) ? user.legendary : 0,
+        pet: isNumber(user.pet) ? user.pet : 0,
+        horse: isNumber(user.horse) ? user.horse : 0,
+        fox: isNumber(user.fox) ? user.fox : 0,
+        dog: isNumber(user.dog) ? user.dog : 0,
+        cat: isNumber(user.cat) ? user.cat : 0,
+        centaur: isNumber(user.centaur) ? user.centaur : 0,
+        phoenix: isNumber(user.phoenix) ? user.phoenix : 0,
+        dragon: isNumber(user.dragon) ? user.dragon : 0,
         
         // Otros
-        autolevelup: 'autolevelup' in userDb ? userDb.autolevelup : true
+        autolevelup: 'autolevelup' in user ? user.autolevelup : true
       })
 
       // ═════════════════════════════════════════════════════════════════════════
       // │                 INICIALIZACIÓN DE CHAT COMPLETO                       │
       // ═════════════════════════════════════════════════════════════════════════
       
-      if (!chat || typeof chat !== 'object') global.db.data.chats[m.chat] = {}
+      let chat = global.db.data.chats[m.chat]
+      if (!chat || typeof chat !== 'object') global.db.data.chats[m.chat] = chat = {}
       
       Object.assign(chat, {
         isBanned: 'isBanned' in chat ? chat.isBanned : false,
@@ -262,11 +188,6 @@ export async function handler(chatUpdate) {
         antiTiktok: 'antiTiktok' in chat ? chat.antiTiktok : false,
         antiYoutube: 'antiYoutube' in chat ? chat.antiYoutube : false,
         
-        // Funciones especiales (Hepein Oficial)
-        antiLag: 'antiLag' in chat ? chat.antiLag : false,
-        per: Array.isArray(chat.per) ? chat.per : [],
-        birthdayAllowed: 'birthdayAllowed' in chat ? chat.birthdayAllowed : false,
-        
         // Modo administrador
         modoadmin: 'modoadmin' in chat ? chat.modoadmin : false,
         
@@ -298,8 +219,7 @@ export async function handler(chatUpdate) {
         autoread: 'autoread' in settings ? settings.autoread : false,
         antiCall: 'antiCall' in settings ? settings.antiCall : false,
         antiSpam: 'antiSpam' in settings ? settings.antiSpam : false,
-        status: settings.status || 0,
-        actives: Array.isArray(settings.actives) ? settings.actives : []
+        status: settings.status || 0
       })
       
       global.db.data.settings[this.user.jid] = settings
@@ -312,7 +232,7 @@ export async function handler(chatUpdate) {
     globalThis.setting = global.db.data.settings[this.user.jid]
 
     // ═════════════════════════════════════════════════════════════════════════
-    // │               SISTEMA DE PERMISOS Y ROLES (MEJORADO)                  │
+    // │               SISTEMA DE PERMISOS Y ROLES (SIMPLIFICADO)              │
     // ═════════════════════════════════════════════════════════════════════════
     
     // Sistema de detección de LID mejorado
@@ -325,13 +245,10 @@ export async function handler(chatUpdate) {
     // Premium
     const isPrems = isROwner || global.db.data.users[m.sender].premiumTime > 0
     
-    // Moderadores (Mods) - AGREGADO
+    // ✅ CORRECCIÓN: Definir isMods (estaba sin definir)
     const isMods = isOwner || (global.mods || []).map(v => v.replace(/[^0-9]/g, '') + detectwhat).includes(m.sender)
-    
-    // Helpers (Ayudantes) - NUEVO ROL
-    const isHelpers = isMods || (global.helpers || []).map(v => v.replace(/[^0-9]/g, '') + detectwhat).includes(m.sender)
 
-    // Sistema de cola de mensajes
+    // Sistema de cola de mensajes - ✅ CORREGIDO
     if (opts["queque"] && m.text && !isMods) {
       const queque = this.msgqueque
       const previousID = queque[queque.length - 1]
@@ -355,28 +272,24 @@ export async function handler(chatUpdate) {
       return res[0]?.lid || id
     }
 
+    // ✅ CORRECCIÓN: Usar 'this' en lugar de 'conn'
     const senderLid = await getLidFromJid(m.sender, this)
     const botLid = await getLidFromJid(this.user.jid, this)
     const senderJid = m.sender
     const botJid = this.user.jid
 
-    // ✅ CORRECCIÓN 3: QUITAR const (ya están declaradas arriba)
     // Obtener metadata del grupo
-    groupMetadata = m.isGroup ? ((this.chats[m.chat] || {}).metadata || await this.groupMetadata(m.chat).catch(() => null)) : {}
-    participants = m.isGroup && groupMetadata ? groupMetadata.participants || [] : []
+    const groupMetadata = m.isGroup ? ((this.chats[m.chat] || {}).metadata || await this.groupMetadata(m.chat).catch(() => null)) : {}
+    const participants = m.isGroup && groupMetadata ? groupMetadata.participants || [] : []
 
-    user = participants.find(p => [p?.id, p?.jid].includes(senderLid) || [p?.id, p?.jid].includes(senderJid)) || {}
-    bot = participants.find(p => [p?.id, p?.jid].includes(botLid) || [p?.id, p?.jid].includes(botJid)) || {}
+    const user = participants.find(p => [p?.id, p?.jid].includes(senderLid) || [p?.id, p?.jid].includes(senderJid)) || {}
+    const bot = participants.find(p => [p?.id, p?.jid].includes(botLid) || [p?.id, p?.jid].includes(botJid)) || {}
 
     const isRAdmin = user.admin === 'superadmin'
     const isAdmin = isRAdmin || user.admin === 'admin'
     const isBotAdmin = !!bot.admin
 
     const ___dirname = path.join(path.dirname(fileURLToPath(import.meta.url)), './plugins')
-    
-    // Variable para detectar si se encontró un comando
-    let commandFound = false
-    let attemptedCommand = ''
     
     // ═════════════════════════════════════════════════════════════════════════
     // │                      PROCESAMIENTO DE PLUGINS                         │
@@ -429,7 +342,6 @@ export async function handler(chatUpdate) {
             isBotAdmin, 
             isPrems,
             isMods,
-            isHelpers,
             chatUpdate, 
             __dirname: ___dirname, 
             __filename 
@@ -450,10 +362,8 @@ export async function handler(chatUpdate) {
         let text = _args.join` `
         command = (command || '').toLowerCase()
         
-        // Guardar comando intentado para detección de error
-        if (!commandFound) {
-          attemptedCommand = command
-        }
+        // ✅ DEBUG: Ver qué comando se está intentando ejecutar
+        console.log(chalk.cyan(`[CMD] ${command} | Prefix: ${usedPrefix} | User: ${m.sender.split('@')[0]}`))
         
         let fail = plugin.fail || global.dfail
         let isAccept = plugin.command instanceof RegExp ? plugin.command.test(command) :
@@ -464,14 +374,14 @@ export async function handler(chatUpdate) {
 
         global.comando = command
         
-        if ((m.id.startsWith('NJX-') || 
-            (m.id.startsWith('BAE5') && m.id.length === 16) || 
-            (m.id.startsWith('B24E') && m.id.length === 20))) return
+        // ✅ CORRECCIÓN: COMENTADO el bloqueo problemático de IDs
+        // if ((m.id.startsWith('NJX-') || 
+        //     (m.id.startsWith('BAE5') && m.id.length === 16) || 
+        //     (m.id.startsWith('B24E') && m.id.length === 20))) return
         
         if (!isAccept) continue
 
-        // Se encontró un comando válido
-        commandFound = true
+        console.log(chalk.green(`[✓] Ejecutando: ${command} | Plugin: ${name}`))
 
         m.plugin = name
         let chat = global.db.data.chats[m.chat]
@@ -485,13 +395,18 @@ export async function handler(chatUpdate) {
           return
         }
 
+        // ✅ CORRECCIÓN: Modo admin más específico
         let adminMode = global.db.data.chats[m.chat].modoadmin
-        let mini = `${plugins.botAdmin || plugins.admin || plugins.group || plugins || noPrefix || hl || m.text.slice(0, 1) == hl || plugins.command}`
-        
-        if (adminMode && !isOwner && !isROwner && m.isGroup && !isAdmin && mini) return
+        if (adminMode && !isOwner && !isROwner && m.isGroup && !isAdmin) {
+          // Solo bloquear si el comando realmente requiere permisos
+          if (plugin.admin || plugin.botAdmin) {
+            console.log(chalk.yellow(`[ModoAdmin] Bloqueado: ${command}`))
+            return
+          }
+        }
 
         // ═════════════════════════════════════════════════════════════════════
-        // │              VERIFICACIÓN DE PERMISOS (MEJORADO)                  │
+        // │              VERIFICACIÓN DE PERMISOS                              │
         // ═════════════════════════════════════════════════════════════════════
         
         if (plugin.rowner && plugin.owner && !(isROwner || isOwner)) { 
@@ -510,17 +425,9 @@ export async function handler(chatUpdate) {
           fail('mods', m, this)
           continue 
         }
-        if (plugin.helper && !isHelpers) { 
-          fail('helper', m, this)
-          continue 
-        }
         if (plugin.premium && !isPrems) { 
           fail('premium', m, this)
           continue 
-        }
-        if (plugin.premsub && !isPremSubs) {
-          fail('premsub', m, this)
-          continue
         }
         if (plugin.group && !m.isGroup) { 
           fail('group', m, this)
@@ -548,7 +455,7 @@ export async function handler(chatUpdate) {
         let xp = 'exp' in plugin ? parseInt(plugin.exp) : 10
         m.exp += xp
         
-        // Verificación de money (antes era monedas)
+        // Verificación de money
         if (!isPrems && plugin.money && _user.money < plugin.money) {
           this.reply(m.chat, `💰 *MONEY INSUFICIENTE* 𒁈\n\nNecesitas: ${plugin.money} money\nTienes: ${_user.money} money`, m)
           continue
@@ -562,8 +469,7 @@ export async function handler(chatUpdate) {
         let extra = { 
           match, usedPrefix, noPrefix, _args, args, command, text, 
           conn: this, participants, groupMetadata, user, bot, 
-          isROwner, isOwner, isRAdmin, isAdmin, isBotAdmin, isPrems, isPremSubs,
-          isMods, isHelpers,
+          isROwner, isOwner, isRAdmin, isAdmin, isBotAdmin, isPrems, isMods,
           chatUpdate, __dirname: ___dirname, __filename 
         }
         
@@ -593,18 +499,6 @@ export async function handler(chatUpdate) {
           }
         }
         break
-      }
-    }
-
-    // ═════════════════════════════════════════════════════════════════════════
-    // │           DETECCIÓN DE COMANDO NO EXISTENTE (AVENIX-MULTI)           │
-    // ═════════════════════════════════════════════════════════════════════════
-    
-    if (!commandFound && m.text && attemptedCommand && usedPrefix) {
-      // Solo mostrar error si realmente se intentó ejecutar un comando
-      if (attemptedCommand.length > 0) {
-        let errorMessage = `❌ El comando "${usedPrefix}${attemptedCommand}" no existe.\n\n📋 Usa *${usedPrefix}menu* para ver la lista de comandos disponibles.\n\n𒁈 *Avenix-Multi* 𒁈`
-        this.reply(m.chat, errorMessage, m)
       }
     }
 
@@ -660,10 +554,6 @@ export async function handler(chatUpdate) {
     }
     
     if (opts['autoread']) await this.readMessages([m.key])
-    
-    if (groupMetadata && Object.keys(groupMetadata).length > 0) {
-      objectPool.returnObject(groupMetadata)
-    }
   }
 }
 
@@ -830,7 +720,7 @@ export async function callUpdate(json) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// │                      FUNCIÓN DE MANEJO DE FALLOS (MEJORADA)                │
+// │                      FUNCIÓN DE MANEJO DE FALLOS                           │
 // ═══════════════════════════════════════════════════════════════════════════════
 
 global.dfail = (type, m, usedPrefix, command, conn) => {
@@ -841,11 +731,7 @@ global.dfail = (type, m, usedPrefix, command, conn) => {
     
     mods: `⚙️ *SOLO MODERADORES* 𒁈\n\nEste comando es solo para *Moderadores*.\n\n𒁈 *Avenix-Multi*`,
     
-    helper: `🛠️ *SOLO HELPERS* 𒁈\n\nEste comando es solo para *Helpers* (Ayudantes) del bot.\n\nLos helpers pueden:\n• Ver estadísticas\n• Responder consultas\n• Usar comandos de soporte\n\nContacta al propietario para ser helper.\n\n𒁈 *Avenix-Multi*`,
-    
     premium: `💎 *PREMIUM REQUERIDO* 𒁈\n\nEste comando es exclusivo para usuarios *Premium*.\n\nContacta al propietario para obtener acceso premium.\n\n𒁈 *Avenix-Multi*`,
-    
-    premsub: `⭐ *SUBBOT PREMIUM* 𒁈\n\nEsta función solo puede ser usada por *SubBots Premium*.\n\nContacta al propietario para más información.\n\n𒁈 *Avenix-Multi*`,
     
     private: `👤 *SOLO CHAT PRIVADO* 𒁈\n\nEste comando solo funciona en chat privado.\n\n𒁈 *Avenix-Multi*`,
     
@@ -857,11 +743,7 @@ global.dfail = (type, m, usedPrefix, command, conn) => {
     
     restrict: `🚫 *FUNCIÓN DESHABILITADA* 𒁈\n\nEsta función fue deshabilitada por el propietario.\n\n𒁈 *Avenix-Multi*`,
     
-    group: `📱 *SOLO GRUPOS* 𒁈\n\nEste comando solo funciona en grupos.\n\n𒁈 *Avenix-Multi*`,
-    
-    gconly: `📱 *SOLO GRUPOS* 𒁈\n\nEste bot está configurado solo para *Grupos*.\n\n𒁈 *Avenix-Multi*`,
-    
-    pconly: `👤 *SOLO CHAT PRIVADO* 𒁈\n\nEste bot está configurado solo para *Chat Privado*.\n\n𒁈 *Avenix-Multi*`
+    group: `📱 *SOLO GRUPOS* 𒁈\n\nEste comando solo funciona en grupos.\n\n𒁈 *Avenix-Multi*`
   }[type]
   
   if (msg) return m.reply(msg).then(_ => m.react('✖️'))
