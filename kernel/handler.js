@@ -1,9 +1,8 @@
 /**
  * ╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
  * ┃                         𒁈 AVENIX-MULTI V6.1.0 𒁈                          ┃
- * ┃                          HANDLER CORREGIDO Y OPTIMIZADO                     ┃
- * ┃                       Basado en Black Clover (funcional)                   ┃
- * ┃                        ✅ VERSIÓN 100% FUNCIONAL ✅                        ┃
+ * ┃                     HANDLER FINAL - 100% FUNCIONAL                         ┃
+ * ┃                  ERROR v.replace CORREGIDO - VERSIÓN ESTABLE               ┃
  * ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
  */
 
@@ -42,7 +41,7 @@ export async function handler(chatUpdate) {
     
     global.mconn = m
     m.exp = 0
-    m.money = 0  // ✅ money en lugar de monedas
+    m.money = 0
 
     try {
       // ═════════════════════════════════════════════════════════════════════════
@@ -53,17 +52,12 @@ export async function handler(chatUpdate) {
       if (!user || typeof user !== 'object') global.db.data.users[m.sender] = user = {}
 
       Object.assign(user, {
-        // Sistema económico base
         exp: isNumber(user.exp) ? user.exp : 0,
         money: isNumber(user.money) ? user.money : 10,
         diamond: isNumber(user.diamond) ? user.diamond : 3,
         joincount: isNumber(user.joincount) ? user.joincount : 1,
-        
-        // Sistema RPG - Estadísticas
         health: isNumber(user.health) ? user.health : 100,
         crime: isNumber(user.crime) ? user.crime : 0,
-        
-        // Sistema RPG - Cooldowns
         lastadventure: isNumber(user.lastadventure) ? user.lastadventure : 0,
         lastclaim: isNumber(user.lastclaim) ? user.lastclaim : 0,
         lastcofre: isNumber(user.lastcofre) ? user.lastcofre : 0,
@@ -85,43 +79,27 @@ export async function handler(chatUpdate) {
         lastgift: isNumber(user.lastgift) ? user.lastgift : 0,
         lastreward: isNumber(user.lastreward) ? user.lastreward : 0,
         lastbet: isNumber(user.lastbet) ? user.lastbet : 0,
-        
-        // Sistema de moderación
         muto: 'muto' in user ? user.muto : false,
         banned: 'banned' in user ? user.banned : false,
         bannedReason: user.bannedReason || '',
         warn: isNumber(user.warn) ? user.warn : 0,
-        
-        // Sistema premium
         premium: 'premium' in user ? user.premium : false,
         premiumTime: user.premium ? user.premiumTime || 0 : 0,
-        
-        // Sistema de registro
         registered: 'registered' in user ? user.registered : false,
         name: user.name || m.name,
         age: isNumber(user.age) ? user.age : -1,
         regTime: isNumber(user.regTime) ? user.regTime : -1,
-        
-        // Información personal
         genre: user.genre || '',
         birth: user.birth || '',
         marry: user.marry || '',
         description: user.description || '',
-        
-        // Sistema AFK
         afk: isNumber(user.afk) ? user.afk : -1,
         afkReason: user.afkReason || '',
-        
-        // Sistema de roles y niveles
         role: user.role || 'Novato',
         level: isNumber(user.level) ? user.level : 0,
         bank: isNumber(user.bank) ? user.bank : 0,
-        
-        // Configuraciones de usuario
         useDocument: 'useDocument' in user ? user.useDocument : false,
         packstickers: user.packstickers || null,
-        
-        // Sistema RPG - Items
         pc: isNumber(user.pc) ? user.pc : 0,
         sp: isNumber(user.sp) ? user.sp : 0,
         spada: isNumber(user.spada) ? user.spada : 0,
@@ -135,8 +113,6 @@ export async function handler(chatUpdate) {
         centaur: isNumber(user.centaur) ? user.centaur : 0,
         phoenix: isNumber(user.phoenix) ? user.phoenix : 0,
         dragon: isNumber(user.dragon) ? user.dragon : 0,
-        
-        // Otros
         autolevelup: 'autolevelup' in user ? user.autolevelup : true
       })
 
@@ -149,28 +125,20 @@ export async function handler(chatUpdate) {
       
       Object.assign(chat, {
         isBanned: 'isBanned' in chat ? chat.isBanned : false,
-        
-        // Mensajes personalizados
         sAutoresponder: chat.sAutoresponder || '',
         sWelcome: chat.sWelcome || '',
         sBye: chat.sBye || '',
         sPromote: chat.sPromote || '',
         sDemote: chat.sDemote || '',
-        
-        // Funciones de grupo
         welcome: 'welcome' in chat ? chat.welcome : true,
         detect: 'detect' in chat ? chat.detect : true,
         delete: 'delete' in chat ? chat.delete : false,
         antidelete: 'antidelete' in chat ? chat.antidelete : false,
-        
-        // Configuraciones automáticas
         autolevelup: 'autolevelup' in chat ? chat.autolevelup : false,
         autoAceptar: 'autoAceptar' in chat ? chat.autoAceptar : true,
         autoRechazar: 'autoRechazar' in chat ? chat.autoRechazar : true,
         autosticker: 'autosticker' in chat ? chat.autosticker : false,
         autoresponder: 'autoresponder' in chat ? chat.autoresponder : false,
-        
-        // Sistema anti (básico)
         antiBot: 'antiBot' in chat ? chat.antiBot : true,
         antiBot2: 'antiBot2' in chat ? chat.antiBot2 : true,
         antiLink: 'antiLink' in chat ? chat.antiLink : true,
@@ -181,24 +149,16 @@ export async function handler(chatUpdate) {
         antiTraba: 'antiTraba' in chat ? chat.antiTraba : false,
         antiSpam: 'antiSpam' in chat ? chat.antiSpam : false,
         antiFlood: 'antiFlood' in chat ? chat.antiFlood : false,
-        
-        // Sistema anti (redes sociales)
         antiTelegram: 'antiTelegram' in chat ? chat.antiTelegram : false,
         antiDiscord: 'antiDiscord' in chat ? chat.antiDiscord : false,
         antiTiktok: 'antiTiktok' in chat ? chat.antiTiktok : false,
         antiYoutube: 'antiYoutube' in chat ? chat.antiYoutube : false,
-        
-        // Modo administrador
         modoadmin: 'modoadmin' in chat ? chat.modoadmin : false,
-        
-        // Funciones de entretenimiento
         reaction: 'reaction' in chat ? chat.reaction : false,
         game: 'game' in chat ? chat.game : true,
         rpg: 'rpg' in chat ? chat.rpg : true,
         nsfw: 'nsfw' in chat ? chat.nsfw : false,
         modohorny: 'modohorny' in chat ? chat.modohorny : false,
-        
-        // Otros
         audios: 'audios' in chat ? chat.audios : true,
         autosimi: 'autosimi' in chat ? chat.autosimi : false,
         viewonce: 'viewonce' in chat ? chat.viewonce : false,
@@ -232,23 +192,58 @@ export async function handler(chatUpdate) {
     globalThis.setting = global.db.data.settings[this.user.jid]
 
     // ═════════════════════════════════════════════════════════════════════════
-    // │               SISTEMA DE PERMISOS Y ROLES (SIMPLIFICADO)              │
+    // │           SISTEMA DE PERMISOS Y ROLES (CORREGIDO v.replace)           │
     // ═════════════════════════════════════════════════════════════════════════
     
     // Sistema de detección de LID mejorado
     const detectwhat = m.sender.includes('@lid') ? '@lid' : '@s.whatsapp.net'
     
-    // Owner y ROwner
-    const isROwner = [...global.owner.map(([number]) => number)].map(v => v.replace(/\D/g, "") + detectwhat).includes(m.sender)
+    // Owner y ROwner - CORREGIDO para manejar diferentes formatos
+    const isROwner = (() => {
+      try {
+        if (!global.owner || !Array.isArray(global.owner)) return false
+        
+        return global.owner
+          .map(([number]) => String(number).replace(/\D/g, "") + detectwhat)
+          .includes(m.sender)
+      } catch (e) {
+        console.error('Error en isROwner:', e)
+        return false
+      }
+    })()
+    
     const isOwner = isROwner || m.fromMe
     
     // Premium
     const isPrems = isROwner || global.db.data.users[m.sender].premiumTime > 0
     
-    // ✅ CORRECCIÓN: Definir isMods (estaba sin definir)
-    const isMods = isOwner || (global.mods || []).map(v => v.replace(/[^0-9]/g, '') + detectwhat).includes(m.sender)
+    // Mods - COMPLETAMENTE CORREGIDO
+    const isMods = (() => {
+      if (isOwner) return true
+      if (!global.mods || !Array.isArray(global.mods) || global.mods.length === 0) return false
+      
+      try {
+        const modsJids = global.mods.map(v => {
+          // Manejar diferentes formatos de global.mods
+          if (Array.isArray(v)) {
+            // Formato: [['123456789', 'Nombre'], ['987654321', 'Otro']]
+            return String(v[0]).replace(/[^0-9]/g, '') + detectwhat
+          } else if (typeof v === 'number' || typeof v === 'string') {
+            // Formato: ['123456789', '987654321'] o [123456789, 987654321]
+            return String(v).replace(/[^0-9]/g, '') + detectwhat
+          } else {
+            return null
+          }
+        }).filter(Boolean)
+        
+        return modsJids.includes(m.sender)
+      } catch (e) {
+        console.error('Error en isMods:', e)
+        return false
+      }
+    })()
 
-    // Sistema de cola de mensajes - ✅ CORREGIDO
+    // Sistema de cola de mensajes
     if (opts["queque"] && m.text && !isMods) {
       const queque = this.msgqueque
       const previousID = queque[queque.length - 1]
@@ -272,13 +267,11 @@ export async function handler(chatUpdate) {
       return res[0]?.lid || id
     }
 
-    // ✅ CORRECCIÓN: Usar 'this' en lugar de 'conn'
     const senderLid = await getLidFromJid(m.sender, this)
     const botLid = await getLidFromJid(this.user.jid, this)
     const senderJid = m.sender
     const botJid = this.user.jid
 
-    // Obtener metadata del grupo
     const groupMetadata = m.isGroup ? ((this.chats[m.chat] || {}).metadata || await this.groupMetadata(m.chat).catch(() => null)) : {}
     const participants = m.isGroup && groupMetadata ? groupMetadata.participants || [] : []
 
@@ -362,7 +355,6 @@ export async function handler(chatUpdate) {
         let text = _args.join` `
         command = (command || '').toLowerCase()
         
-        // ✅ DEBUG: Ver qué comando se está intentando ejecutar
         console.log(chalk.cyan(`[CMD] ${command} | Prefix: ${usedPrefix} | User: ${m.sender.split('@')[0]}`))
         
         let fail = plugin.fail || global.dfail
@@ -373,11 +365,6 @@ export async function handler(chatUpdate) {
           plugin.command === command
 
         global.comando = command
-        
-        // ✅ CORRECCIÓN: COMENTADO el bloqueo problemático de IDs
-        // if ((m.id.startsWith('NJX-') || 
-        //     (m.id.startsWith('BAE5') && m.id.length === 16) || 
-        //     (m.id.startsWith('B24E') && m.id.length === 20))) return
         
         if (!isAccept) continue
 
@@ -395,20 +382,14 @@ export async function handler(chatUpdate) {
           return
         }
 
-        // ✅ CORRECCIÓN: Modo admin más específico
         let adminMode = global.db.data.chats[m.chat].modoadmin
         if (adminMode && !isOwner && !isROwner && m.isGroup && !isAdmin) {
-          // Solo bloquear si el comando realmente requiere permisos
           if (plugin.admin || plugin.botAdmin) {
             console.log(chalk.yellow(`[ModoAdmin] Bloqueado: ${command}`))
             return
           }
         }
 
-        // ═════════════════════════════════════════════════════════════════════
-        // │              VERIFICACIÓN DE PERMISOS                              │
-        // ═════════════════════════════════════════════════════════════════════
-        
         if (plugin.rowner && plugin.owner && !(isROwner || isOwner)) { 
           fail('owner', m, this)
           continue 
@@ -455,7 +436,6 @@ export async function handler(chatUpdate) {
         let xp = 'exp' in plugin ? parseInt(plugin.exp) : 10
         m.exp += xp
         
-        // Verificación de money
         if (!isPrems && plugin.money && _user.money < plugin.money) {
           this.reply(m.chat, `💰 *MONEY INSUFICIENTE* 𒁈\n\nNecesitas: ${plugin.money} money\nTienes: ${_user.money} money`, m)
           continue
@@ -726,23 +706,14 @@ export async function callUpdate(json) {
 global.dfail = (type, m, usedPrefix, command, conn) => {
   const msg = {
     rowner: `🚫 *ACCESO RESTRINGIDO* 𒁈\n\nSolo el *Creador Principal* puede usar este comando.\n\n𒁈 *Avenix-Multi*`,
-    
     owner: `🔒 *SOLO PROPIETARIO* 𒁈\n\nEste comando solo puede ser usado por el *Propietario* del bot.\n\n𒁈 *Avenix-Multi*`,
-    
     mods: `⚙️ *SOLO MODERADORES* 𒁈\n\nEste comando es solo para *Moderadores*.\n\n𒁈 *Avenix-Multi*`,
-    
     premium: `💎 *PREMIUM REQUERIDO* 𒁈\n\nEste comando es exclusivo para usuarios *Premium*.\n\nContacta al propietario para obtener acceso premium.\n\n𒁈 *Avenix-Multi*`,
-    
     private: `👤 *SOLO CHAT PRIVADO* 𒁈\n\nEste comando solo funciona en chat privado.\n\n𒁈 *Avenix-Multi*`,
-    
     admin: `👑 *SOLO ADMINISTRADORES* 𒁈\n\nEste comando solo puede ser usado por *Administradores* del grupo.\n\n𒁈 *Avenix-Multi*`,
-    
     botAdmin: `🤖 *BOT NO ES ADMIN* 𒁈\n\nNecesito ser *Administrador* para usar este comando.\n\n𒁈 *Avenix-Multi*`,
-    
     unreg: `📝 *REGISTRO REQUERIDO* 𒁈\n\nDebes registrarte para usar los comandos.\n\n📋 Regístrate con: *${usedPrefix || '.'}reg nombre.edad*\n📌 Ejemplo: *${usedPrefix || '.'}reg Juan.25*\n\n𒁈 *Avenix-Multi*`,
-    
     restrict: `🚫 *FUNCIÓN DESHABILITADA* 𒁈\n\nEsta función fue deshabilitada por el propietario.\n\n𒁈 *Avenix-Multi*`,
-    
     group: `📱 *SOLO GRUPOS* 𒁈\n\nEste comando solo funciona en grupos.\n\n𒁈 *Avenix-Multi*`
   }[type]
   
