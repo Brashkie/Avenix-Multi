@@ -369,7 +369,8 @@ if (global.conns instanceof Array) {
 // ═══════════════════════════════════════════════════
 // CARGAR PLUGINS
 // ═══════════════════════════════════════════════════
-const pluginFolder = global.__dirname(join(__dirname, './plugins'))
+const pluginFolder = global.__dirname(join(__dirname, './plugins/index'))
+
 const pluginFilter = (filename) => /\.js$/.test(filename)
 global.plugins = {}
 
