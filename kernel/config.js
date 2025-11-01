@@ -67,6 +67,13 @@ global.confirmCode = ""
 global.obtenerQrWeb = 0 // QR por web (0 = desactivado, 1 = activado)
 global.keepAliveRender = 0 // Keep alive para Render.com
 
+
+global.sessionName = 'sessions'  // Nombre de carpeta de sesión (REQUERIDO)
+global.sessions = 'sessions'
+global.nameqr = 'Avenix-Multi'
+global.botNumber = ''
+global.conns = []                           // Array de conexiones de subbots
+global.rutaJadiBot = './kernel/jadibot'    // Ruta donde se guardan los subbots
 // ═══════════════════════════════════════════════════════════════════════════════
 // │                           INFORMACIÓN DEL BOT                               │
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -490,9 +497,6 @@ global.autoRead = false // Leer mensajes automáticamente
 global.self = false // Modo self (solo responde al owner)
 global.gconly = false // Solo funciona en grupos
 global.pconly = false // Solo funciona en privado
-
-// Prefijos
-global.prefix = new RegExp('^[' + (process.env.PREFIX || '‎xzXZ/i!#$%+£¢€¥^°=¶∆×÷π√✓©®:;?&.\\-.@').replace(/[|\\{}()[\]^$+*?.\-\^]/g, '\\$&') + ']')
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // │                          CONFIGURACIÓN DE COMANDOS                          │
