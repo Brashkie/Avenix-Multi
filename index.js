@@ -224,6 +224,7 @@ function start(file) {
   p.on('exit', (_, code) => {
     isRunning = false
     console.error(chalk.red('⚠️ Error:\n'), code)
+    process.exit()
     
     if (code === 0) return
     
