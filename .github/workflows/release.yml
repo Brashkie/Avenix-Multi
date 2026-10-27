@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify tag matches package.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "::error::El tag v$TAG no coincide con la versión de package.json ($VERSION)"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Smoke test
+        run: npm run test:smoke
+
+      - name: Build
+        run: npm run build
+
+      - name: Package release assets
+        run: |
+          NAME="avenix-multi-v${VERSION}"
+          mkdir -p "release/${NAME}"
+          cp -r dist src scripts media package.json package-lock.json tsconfig.json avenix.sh LICENSE README.md README.es.md CHANGELOG.md "release/${NAME}/"
+          tar -czf "release/${NAME}.tar.gz" -C release "${NAME}"
+          (cd release && zip -qr "${NAME}.zip" "${NAME}")
+          (cd release && sha256sum "${NAME}.tar.gz" "${NAME}.zip" > SHA256SUMS.txt)
+
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release/NOTES.md
+          if [ ! -s release/NOTES.md ]; then
+            echo "Release v${VERSION}" > release/NOTES.md
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRERELEASE=""
+          case "$VERSION" in *-*) PRERELEASE="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Avenix-Multi v${VERSION}" \
+            --notes-file release/NOTES.md \
+            $PRERELEASE \
+            "release/avenix-multi-v${VERSION}.tar.gz" \
+            "release/avenix-multi-v${VERSION}.zip" \
+            release/SHA256SUMS.txt
