@@ -60,7 +60,13 @@ if (jsonFiles.length) failed.push(`Archivos JSON generados: ${jsonFiles.join(', 
 const { closeAll } = await load('src/lib/storage.ts')
 closeAll()
 process.chdir(root)
-rmSync(workdir, { recursive: true, force: true })
+try {
+    // En Windows los archivos que siguen abiertos (p. ej. el log del logger) no se pueden borrar;
+    // es una carpeta temporal del sistema, así que un fallo aquí no invalida la prueba.
+    rmSync(workdir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+} catch (e: any) {
+    console.warn(`⚠️ No se pudo borrar ${workdir}: ${e?.code || e}`)
+}
 
 console.log(`\n✓ Módulos cargados: ${ok}`)
 if (failed.length) {
